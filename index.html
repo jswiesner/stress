@@ -69,8 +69,9 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
 .cell.ezone.b{background:#281a40!important}
 .cell.ezone-deep.a{background:#3d1f50!important}
 .cell.ezone-deep.b{background:#351848!important}
-/* Center line — unmissable dashed gold divider */
-.cell.midline{border-bottom:2px dashed rgba(245,200,66,.65)}
+/* Center line — dashed gold line through the middle of the center row */
+.cell.midline{position:relative}
+.cell.midline::before{content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:2px;border-top:2px dashed rgba(245,200,66,.65);z-index:1;pointer-events:none}
 /* Row zone indicators — colored top/bottom borders */
 .cell.ezone-deep{border-top:1px solid rgba(239,68,68,.15)}
 .cell.sel{background:rgba(245,200,66,.2)!important;box-shadow:inset 0 0 0 2px var(--gold)}
@@ -683,9 +684,8 @@ function renderCell(r,c,hide){
   let cls='cell '+((r+c)%2===0?'a':'b');
   // Territory zones: rows 0-2 = red home, row 3 = neutral center, rows 4-6 = blue home
   if(r<=2)cls+=' ezone ezone-deep';      // deep red territory
-  else if(r===3)cls+=' ezone';            // contested center
-  else if(r>=4)cls+=' ezone';             // blue home (red's enemy zone)
-  if(r===2)cls+=' midline';              // center line between rows 2 and 3
+  else if(r===3)cls+=' ezone midline';   // contested center with line through middle
+  else if(r>=4)cls+=' ezone';            // blue home (red's enemy zone)
   if(lastMv&&((lastMv.fr===r&&lastMv.fc===c)||(lastMv.tr===r&&lastMv.tc===c)))cls+=' last';
   if(sel&&sel.r===r&&sel.c===c)cls+=' sel';
   const vm=vmoves.find(m=>m.r===r&&m.c===c);

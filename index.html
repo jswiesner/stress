@@ -64,10 +64,15 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
 .board{display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(7,1fr);width:100%;height:100%;border-radius:8px;overflow:hidden;border:2px solid var(--bg3)}
 .cell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
 .cell.a{background:var(--cell-a)}.cell.b{background:var(--cell-b)}
-.cell.ezone{background:rgba(255,80,80,.045)!important}
-.cell.ezone.a{background:color-mix(in srgb,var(--cell-a),rgba(255,60,60,.12))!important}
-.cell.ezone.b{background:color-mix(in srgb,var(--cell-b),rgba(255,60,60,.12))!important}
-.cell.midline{border-bottom:2px solid rgba(245,200,66,.25)}
+/* Territory shading — clearly visible zones */
+.cell.ezone.a{background:#302048!important}
+.cell.ezone.b{background:#281a40!important}
+.cell.ezone-deep.a{background:#3d1f50!important}
+.cell.ezone-deep.b{background:#351848!important}
+/* Center line — unmissable dashed gold divider */
+.cell.midline{border-bottom:2px dashed rgba(245,200,66,.65)}
+/* Row zone indicators — colored top/bottom borders */
+.cell.ezone-deep{border-top:1px solid rgba(239,68,68,.15)}
 .cell.sel{background:rgba(245,200,66,.2)!important;box-shadow:inset 0 0 0 2px var(--gold)}
 .cell.mv::after{content:'';position:absolute;width:26%;height:26%;border-radius:50%;background:rgba(245,200,66,.5);z-index:4;pointer-events:none}
 .cell.cap{background:rgba(239,68,68,.2)!important}
@@ -93,10 +98,20 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
 .piece.s3{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 14px 4px rgba(239,68,68,.7)!important;animation:shake .25s infinite}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
 
-/* Stress dots */
-.sdots{position:absolute;bottom:0;left:50%;transform:translateX(-50%);display:flex;gap:2px;z-index:5}
-.sdot{width:5px;height:5px;border-radius:50%}
-.sdot.d1{background:var(--s1)}.sdot.d2{background:var(--s2)}.sdot.d3{background:var(--s3)}
+/* Stress badge — large numbered indicator */
+.sbadge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;font-size:11px;font-weight:900;line-height:18px;text-align:center;color:#fff;z-index:6;pointer-events:none;letter-spacing:0;padding:0 3px;border:1.5px solid rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.sbadge.s1{background:var(--s1);box-shadow:0 0 6px rgba(234,179,8,.6)}
+.sbadge.s2{background:var(--s2);box-shadow:0 0 8px rgba(249,115,22,.7);animation:badge-pulse 1s infinite}
+@keyframes badge-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+
+/* Stress gain flash on cells */
+@keyframes stress-flash{0%{background:rgba(239,68,68,.35)}100%{background:transparent}}
+.cell.stress-up{animation:stress-flash .5s ease-out}
+
+/* Zone label overlays */
+.zone-label{position:absolute;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(245,200,66,.5);pointer-events:none;z-index:2;text-transform:uppercase;white-space:nowrap}
+.zone-label.top{top:4px}
+.zone-label.bot{bottom:4px}
 
 /* Status bar */
 .status{width:100%;text-align:center;font-size:.75rem;color:var(--text2);padding:2px;min-height:20px}
@@ -290,11 +305,16 @@ function inEnemyZone(r,pl){return pl===1?r<=3:r>=3}
 // movedR/movedC = the piece that just moved (stress reset already).
 // Returns array of shattered positions.
 function applyStress(b,player,movedR,movedC){
+  const stressed=[];
   for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
     const pc=b[r][c];
     if(!pc||pc.c)continue;                // skip null, crown
     if(r===movedR&&c===movedC)continue;    // skip the piece that moved
-    if(inEnemyZone(r,pc.p))pc.s=Math.min(pc.s+1,STRESS_MAX);
+    if(inEnemyZone(r,pc.p)){
+      const prev=pc.s;
+      pc.s=Math.min(pc.s+1,STRESS_MAX);
+      if(pc.s>prev)stressed.push({r,c});
+    }
   }
   // Shatter + chain
   const shattered=[];
@@ -318,7 +338,7 @@ function applyStress(b,player,movedR,movedC){
       }
     }
   }
-  return shattered;
+  return{shattered,stressed};
 }
 
 // ============================================================
@@ -417,7 +437,13 @@ function finishExec(fr,fc,tr,tc,pc,captured,isCap,isCrownCap){
   hist.push({fr,fc,tr,tc,p:pc.p});
 
   // Apply stress to current player's unmoved pieces
-  const shattered=applyStress(board,cur,tr,tc);
+  const{shattered,stressed}=applyStress(board,cur,tr,tc);
+  // Flash cells that gained stress
+  for(const st of stressed){
+    const idx=st.r*SZ+st.c;
+    const cell=document.getElementById('board').children[idx];
+    if(cell){cell.classList.add('stress-up');setTimeout(()=>cell.classList.remove('stress-up'),500)}
+  }
   // Animate shatters
   for(const sh of shattered){
     animateShatter(sh.r,sh.c,sh.p);
@@ -639,6 +665,14 @@ function buildBoard(){
     d.addEventListener('click',()=>onClick(r,c));
     el.appendChild(d);
   }
+  // Add zone labels to board wrapper
+  const wrap=document.getElementById('bwrap');
+  wrap.querySelectorAll('.zone-label').forEach(e=>e.remove());
+  const topLbl=document.createElement('div');
+  topLbl.className='zone-label top';topLbl.textContent='⚡ STRESS ZONE';
+  const botLbl=document.createElement('div');
+  botLbl.className='zone-label bot';botLbl.textContent='⚡ STRESS ZONE';
+  wrap.appendChild(topLbl);wrap.appendChild(botLbl);
 }
 
 function renderCell(r,c,hide){
@@ -647,8 +681,10 @@ function renderCell(r,c,hide){
   if(!cell)return;
   // Compute class
   let cls='cell '+((r+c)%2===0?'a':'b');
-  if(r<=3)cls+=' ezone'; // top half = enemy territory for blue
-  if(r===3)cls+=' midline'; // center divider
+  // Territory zones: rows 0-2 = deep red zone, row 3 = contested, rows 4-6 = deep blue zone
+  if(r<=2)cls+=' ezone ezone-deep';      // deep red territory
+  else if(r===3)cls+=' ezone midline';    // contested center
+  else if(r>=4)cls+=' ezone';             // blue home (red's enemy zone)
   if(lastMv&&((lastMv.fr===r&&lastMv.fc===c)||(lastMv.tr===r&&lastMv.tc===c)))cls+=' last';
   if(sel&&sel.r===r&&sel.c===c)cls+=' sel';
   const vm=vmoves.find(m=>m.r===r&&m.c===c);
@@ -660,10 +696,9 @@ function renderCell(r,c,hide){
   if(pc){
     const pCls='piece '+(pc.c?'crown':'reg')+' p'+pc.p+(!pc.c&&pc.s===1?' s1':!pc.c&&pc.s>=2?' s2':'');
     let h='<div class="'+pCls+'"></div>';
+    // Bold numbered stress badge instead of tiny dots
     if(pc.s>0&&!pc.c){
-      h+='<div class="sdots">';
-      for(let i=0;i<pc.s;i++)h+='<div class="sdot d'+pc.s+'"></div>';
-      h+='</div>';
+      h+='<div class="sbadge s'+Math.min(pc.s,2)+'">'+pc.s+'</div>';
     }
     cell.innerHTML=h;
   }else cell.innerHTML='';
@@ -680,13 +715,19 @@ function render(){
   document.getElementById('caps1').textContent=caps[1]?'Captured: '+caps[1]:'';
   document.getElementById('caps2').textContent=caps[2]?'Captured: '+caps[2]:'';
 
-  // Status
+  // Status — show stress info prominently
   if(!over){
     const nm=cur===1?(mode==='ai'?'Your':"Blue's"):(mode==='ai'?"Computer's":"Red's");
-    let panic=0;
-    for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++)
-      if(board[r][c]&&board[r][c].p===cur&&!board[r][c].c&&board[r][c].s>=2)panic++;
-    if(panic>0)setStatus(nm+' turn — '+panic+' piece'+(panic>1?'s':'')+' critical!',true);
+    let panic=0,stressed=0;
+    for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
+      const pc=board[r][c];
+      if(pc&&pc.p===cur&&!pc.c){
+        if(pc.s>=2)panic++;
+        else if(pc.s===1)stressed++;
+      }
+    }
+    if(panic>0)setStatus('⚠ '+panic+' piece'+(panic>1?'s':'')+' at stress 2 — will SHATTER next turn!',true);
+    else if(stressed>0)setStatus(nm+' turn — '+stressed+' piece'+(stressed>1?'s':'')+' gaining stress');
     else setStatus(nm+' turn · Turn '+(hist.length+1));
   }
 }

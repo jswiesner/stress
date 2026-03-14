@@ -124,7 +124,7 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
   <div class="rules-inline">
     <span class="rnum">1.</span> Move a piece <b>1–2 squares</b> in any direction. The <b>★&nbsp;Crown</b> moves only 1.<br>
     <span class="rnum">2.</span> <b>Land on</b> an enemy to capture it.<br>
-    <span class="rnum">3.</span> After your turn, your <b>unmoved</b> pieces next to enemies gain <b>+1 stress</b>.<br>
+    <span class="rnum">3.</span> After your turn, your <b>unmoved</b> pieces next to enemies gain <b>+1 stress per enemy</b>.<br>
     <span class="rnum">4.</span> Moving <b>resets stress</b>. At stress 3, pieces <b>shatter</b>. ★ can't shatter.<br>
     <span class="rnum">5.</span> <b>Capture the ★</b> to win. 30s per turn.
   </div>
@@ -294,7 +294,7 @@ function applyStress(b,player,movedR,movedC){
     if(!pc||pc.p!==player||pc.c)continue; // skip null, enemy, crown
     if(r===movedR&&c===movedC)continue;    // skip the piece that moved
     const adj=adjEnemyCount(r,c,player,b);
-    if(adj>0)pc.s=Math.min(pc.s+1,STRESS_MAX);
+    if(adj>0)pc.s=Math.min(pc.s+adj,STRESS_MAX);
   }
   // Shatter + chain
   const shattered=[];
@@ -461,8 +461,8 @@ function evaluate(b){
     const sign=pc.p===2?1:-1;
     // Material
     sc+=sign*(pc.c?800:100);
-    // Stress penalty
-    if(!pc.c)sc-=sign*pc.s*20;
+    // Stress penalty (heavier now that stress accumulates faster)
+    if(!pc.c)sc-=sign*pc.s*30;
     // Advancement bonus
     if(pc.p===2)sc+=r*2*sign;
     if(pc.p===1)sc+=(SZ-1-r)*2*(-sign);
@@ -473,15 +473,23 @@ function evaluate(b){
         if(!dr&&!dc)continue;
         if(inB(r+dr,c+dc)&&b[r+dr][c+dc]&&b[r+dr][c+dc].p===pc.p)friends++;
       }
-      sc+=sign*friends*15;
+      sc+=sign*friends*12;
     }
-    // Pressure: being adjacent to enemy pieces
+    // Surrounding bonus: count enemy stress we're contributing to
     if(!pc.c){
-      const adj=adjEnemyCount(r,c,pc.p,b);
-      // Applying pressure to enemies is good
-      sc+=sign*adj*3;
+      const en=pc.p===1?2:1;
+      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+        if(!dr&&!dc)continue;
+        const nr=r+dr,nc=c+dc;
+        if(inB(nr,nc)&&b[nr][nc]&&b[nr][nc].p===en&&!b[nr][nc].c){
+          sc+=sign*8; // reward surrounding enemies
+          sc+=sign*b[nr][nc].s*4; // bonus if enemy already stressed
+        }
+      }
     }
   }
+  // Noise: makes AI occasionally misjudge positions (beatable but competent)
+  sc+=Math.random()*50-25;
   return sc;
 }
 
@@ -541,7 +549,11 @@ function aiMove(){
   const mvs=allMoves(2,board);
   if(!mvs.length){endGame(1,'Red has no moves!');return}
 
-  // Use minimax
+  // Always capture crown if possible (no noise for this)
+  const crownCap=mvs.find(m=>board[m.r]&&board[m.r][m.c]&&board[m.r][m.c].c);
+  if(crownCap){execMove(crownCap.fr,crownCap.fc,crownCap.r,crownCap.c);return}
+
+  // Minimax with noise baked into evaluation
   const result=minimax(board,2,-Infinity,Infinity,true);
   if(result.move)execMove(result.move.fr,result.move.fc,result.move.r,result.move.c);
 }

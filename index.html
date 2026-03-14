@@ -84,14 +84,15 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
 .piece.crown::after{content:'★';position:relative;z-index:2;font-size:min(3.5vw,18px);color:var(--gold);text-shadow:0 1px 3px rgba(0,0,0,.6);filter:drop-shadow(0 0 4px rgba(245,200,66,.5))}
 
 /* Stress glow */
-.piece.s1{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 8px 2px rgba(234,179,8,.5)!important}
-.piece.s2{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 12px 3px rgba(249,115,22,.6)!important;animation:shake .3s infinite}
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-1.5px)}75%{transform:translateX(1.5px)}}
+.piece.s1{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 8px 2px rgba(234,179,8,.4)!important}
+.piece.s2{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 10px 2px rgba(249,115,22,.5)!important}
+.piece.s3{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 14px 4px rgba(239,68,68,.7)!important;animation:shake .25s infinite}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
 
 /* Stress dots */
 .sdots{position:absolute;bottom:0;left:50%;transform:translateX(-50%);display:flex;gap:2px;z-index:5}
 .sdot{width:5px;height:5px;border-radius:50%}
-.sdot.d1{background:var(--s1)}.sdot.d2{background:var(--s2)}
+.sdot.d1{background:var(--s1)}.sdot.d2{background:var(--s2)}.sdot.d3{background:var(--s3)}
 
 /* Status bar */
 .status{width:100%;text-align:center;font-size:.75rem;color:var(--text2);padding:2px;min-height:20px}
@@ -124,8 +125,8 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
   <div class="rules-inline">
     <span class="rnum">1.</span> Move a piece <b>1–2 squares</b> in any direction. The <b>★&nbsp;Crown</b> moves only 1.<br>
     <span class="rnum">2.</span> <b>Land on</b> an enemy to capture it.<br>
-    <span class="rnum">3.</span> After your turn, your <b>unmoved</b> pieces next to enemies gain <b>+1 stress per enemy</b>.<br>
-    <span class="rnum">4.</span> Moving <b>resets stress</b>. At stress 3, pieces <b>shatter</b>. ★ can't shatter.<br>
+    <span class="rnum">3.</span> After each turn, all <b>unmoved</b> pieces next to enemies gain <b>+1 stress per enemy</b>.<br>
+    <span class="rnum">4.</span> Moving <b>resets stress</b>. At stress 4, pieces <b>shatter</b>. ★ can't shatter.<br>
     <span class="rnum">5.</span> <b>Capture the ★</b> to win. 30s per turn.
   </div>
   <div class="credit">Made by Paul</div>
@@ -223,7 +224,7 @@ function toggleSound(){soundOn=!soundOn;document.getElementById('sndbtn').textCo
 // ============================================================
 //  CONSTANTS & STATE
 // ============================================================
-const SZ=7,STRESS_MAX=3;
+const SZ=7,STRESS_MAX=4;
 let board,cur,sel,vmoves,mode,over,tmr,tint,lastMv,caps,hist,noCapTurns,animating;
 
 function P(player,crown){return{p:player,c:crown,s:0}}
@@ -285,15 +286,15 @@ function adjEnemyCount(r,c,pl,b){
   return n;
 }
 
-// Apply stress to current player's unmoved pieces. movedR/movedC = the piece that moved.
+// Apply stress to ALL unmoved pieces (both sides). movedR/movedC = the piece that moved.
 // Returns array of shattered positions.
 function applyStress(b,player,movedR,movedC){
-  // Gain stress
+  // Gain stress — applies to BOTH players' pieces
   for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
     const pc=b[r][c];
-    if(!pc||pc.p!==player||pc.c)continue; // skip null, enemy, crown
+    if(!pc||pc.c)continue;                // skip null, crown
     if(r===movedR&&c===movedC)continue;    // skip the piece that moved
-    const adj=adjEnemyCount(r,c,player,b);
+    const adj=adjEnemyCount(r,c,pc.p,b);
     if(adj>0)pc.s=Math.min(pc.s+adj,STRESS_MAX);
   }
   // Shatter + chain
@@ -467,8 +468,8 @@ function evaluate(b){
     const sign=pc.p===2?1:-1;
     // Material
     sc+=sign*(pc.c?800:100);
-    // Stress penalty (heavier now that stress accumulates faster)
-    if(!pc.c)sc-=sign*pc.s*30;
+    // Stress penalty — high stress means piece is about to shatter
+    if(!pc.c)sc-=sign*pc.s*25;
     // Advancement bonus
     if(pc.p===2)sc+=r*2*sign;
     if(pc.p===1)sc+=(SZ-1-r)*2*(-sign);
@@ -666,7 +667,7 @@ function renderCell(r,c,hide){
   if(hide){cell.innerHTML='';return}
   const pc=board[r][c];
   if(pc){
-    const pCls='piece '+(pc.c?'crown':'reg')+' p'+pc.p+(pc.s===1&&!pc.c?' s1':'')+(pc.s>=2&&!pc.c?' s2':'');
+    const pCls='piece '+(pc.c?'crown':'reg')+' p'+pc.p+(!pc.c&&pc.s===1?' s1':!pc.c&&pc.s===2?' s2':!pc.c&&pc.s>=3?' s3':'');
     let h='<div class="'+pCls+'"></div>';
     if(pc.s>0&&!pc.c){
       h+='<div class="sdots">';
@@ -693,7 +694,7 @@ function render(){
     const nm=cur===1?(mode==='ai'?'Your':"Blue's"):(mode==='ai'?"Computer's":"Red's");
     let panic=0;
     for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++)
-      if(board[r][c]&&board[r][c].p===cur&&!board[r][c].c&&board[r][c].s>=2)panic++;
+      if(board[r][c]&&board[r][c].p===cur&&!board[r][c].c&&board[r][c].s>=3)panic++;
     if(panic>0)setStatus(nm+' turn — '+panic+' piece'+(panic>1?'s':'')+' critical!',true);
     else setStatus(nm+' turn · Turn '+(hist.length+1));
   }

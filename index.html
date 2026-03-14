@@ -94,15 +94,16 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
 .piece.crown::after{content:'★';position:relative;z-index:2;font-size:min(3.5vw,18px);color:var(--gold);text-shadow:0 1px 3px rgba(0,0,0,.6);filter:drop-shadow(0 0 4px rgba(245,200,66,.5))}
 
 /* Stress glow */
-.piece.s1{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 8px 2px rgba(234,179,8,.4)!important}
-.piece.s2{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 10px 2px rgba(249,115,22,.5)!important}
-.piece.s3{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 14px 4px rgba(239,68,68,.7)!important;animation:shake .25s infinite}
+.piece.s1{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 6px 1px rgba(234,179,8,.3)!important}
+.piece.s2{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 8px 2px rgba(249,115,22,.4)!important}
+.piece.s3{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 12px 3px rgba(239,68,68,.6)!important;animation:shake .25s infinite}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
 
 /* Stress badge — large numbered indicator */
 .sbadge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;font-size:11px;font-weight:900;line-height:18px;text-align:center;color:#fff;z-index:6;pointer-events:none;letter-spacing:0;padding:0 3px;border:1.5px solid rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .sbadge.s1{background:var(--s1);box-shadow:0 0 6px rgba(234,179,8,.6)}
-.sbadge.s2{background:var(--s2);box-shadow:0 0 8px rgba(249,115,22,.7);animation:badge-pulse 1s infinite}
+.sbadge.s2{background:var(--s2);box-shadow:0 0 8px rgba(249,115,22,.7)}
+.sbadge.s3{background:var(--s3);box-shadow:0 0 10px rgba(239,68,68,.8);animation:badge-pulse 1s infinite}
 @keyframes badge-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
 
 /* Stress gain flash on cells */
@@ -146,7 +147,7 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
     <span class="rnum">1.</span> Move a piece <b>1–2 squares</b> in any direction. The <b>★&nbsp;Crown</b> moves only 1.<br>
     <span class="rnum">2.</span> <b>Land on</b> an enemy to capture it.<br>
     <span class="rnum">3.</span> After each turn, <b>unmoved</b> pieces past the <b>center line</b> gain <b>+1 stress</b>.<br>
-    <span class="rnum">4.</span> Moving <b>resets stress</b>. At stress 3, pieces <b>shatter</b>. ★ can't shatter.<br>
+    <span class="rnum">4.</span> Moving <b>resets stress</b>. At stress 4, pieces <b>shatter</b>. ★ can't shatter.<br>
     <span class="rnum">5.</span> <b>Capture the ★</b> to win. 30s per turn.
   </div>
   <div class="credit">Made by Paul</div>
@@ -244,7 +245,7 @@ function toggleSound(){soundOn=!soundOn;document.getElementById('sndbtn').textCo
 // ============================================================
 //  CONSTANTS & STATE
 // ============================================================
-const SZ=7,STRESS_MAX=3;
+const SZ=7,STRESS_MAX=4;
 let board,cur,sel,vmoves,mode,over,tmr,tint,lastMv,caps,hist,noCapTurns,animating;
 
 function P(player,crown){return{p:player,c:crown,s:0}}
@@ -310,6 +311,7 @@ function applyStress(b,player,movedR,movedC){
   for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
     const pc=b[r][c];
     if(!pc||pc.c)continue;                // skip null, crown
+    if(pc.p!==player)continue;             // only stress the current player's pieces
     if(r===movedR&&c===movedC)continue;    // skip the piece that moved
     if(inEnemyZone(r,pc.p)){
       const prev=pc.s;
@@ -509,7 +511,7 @@ function evaluate(b){
       sc+=sign*friends*12;
     }
     // Penalize pieces deep in enemy territory with high stress (about to shatter)
-    if(!pc.c&&inEnemyZone(r,pc.p)&&pc.s>=2)sc-=sign*40;
+    if(!pc.c&&inEnemyZone(r,pc.p)&&pc.s>=3)sc-=sign*40;
   }
   // Noise: makes AI occasionally misjudge positions (beatable but competent)
   sc+=Math.random()*50-25;
@@ -695,11 +697,12 @@ function renderCell(r,c,hide){
   if(hide){cell.innerHTML='';return}
   const pc=board[r][c];
   if(pc){
-    const pCls='piece '+(pc.c?'crown':'reg')+' p'+pc.p+(!pc.c&&pc.s===1?' s1':!pc.c&&pc.s>=2?' s2':'');
+    const sLvl=!pc.c&&pc.s>=3?'s3':!pc.c&&pc.s===2?'s2':!pc.c&&pc.s===1?'s1':'';
+    const pCls='piece '+(pc.c?'crown':'reg')+' p'+pc.p+(sLvl?' '+sLvl:'');
     let h='<div class="'+pCls+'"></div>';
-    // Bold numbered stress badge instead of tiny dots
+    // Bold numbered stress badge
     if(pc.s>0&&!pc.c){
-      h+='<div class="sbadge s'+Math.min(pc.s,2)+'">'+pc.s+'</div>';
+      h+='<div class="sbadge s'+Math.min(pc.s,3)+'">'+pc.s+'</div>';
     }
     cell.innerHTML=h;
   }else cell.innerHTML='';
@@ -723,11 +726,11 @@ function render(){
     for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
       const pc=board[r][c];
       if(pc&&pc.p===cur&&!pc.c){
-        if(pc.s>=2)panic++;
-        else if(pc.s===1)stressed++;
+        if(pc.s>=3)panic++;
+        else if(pc.s>=1)stressed++;
       }
     }
-    if(panic>0)setStatus('⚠ '+panic+' piece'+(panic>1?'s':'')+' at stress 2 — will SHATTER next turn!',true);
+    if(panic>0)setStatus('⚠ '+panic+' piece'+(panic>1?'s':'')+' at stress 3 — will SHATTER next turn!',true);
     else if(stressed>0)setStatus(nm+' turn — '+stressed+' piece'+(stressed>1?'s':'')+' gaining stress');
     else setStatus(nm+' turn · Turn '+(hist.length+1));
   }

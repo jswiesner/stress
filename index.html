@@ -64,6 +64,10 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
 .board{display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(7,1fr);width:100%;height:100%;border-radius:8px;overflow:hidden;border:2px solid var(--bg3)}
 .cell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
 .cell.a{background:var(--cell-a)}.cell.b{background:var(--cell-b)}
+.cell.ezone{background:rgba(255,80,80,.045)!important}
+.cell.ezone.a{background:color-mix(in srgb,var(--cell-a),rgba(255,60,60,.12))!important}
+.cell.ezone.b{background:color-mix(in srgb,var(--cell-b),rgba(255,60,60,.12))!important}
+.cell.midline{border-bottom:2px solid rgba(245,200,66,.25)}
 .cell.sel{background:rgba(245,200,66,.2)!important;box-shadow:inset 0 0 0 2px var(--gold)}
 .cell.mv::after{content:'';position:absolute;width:26%;height:26%;border-radius:50%;background:rgba(245,200,66,.5);z-index:4;pointer-events:none}
 .cell.cap{background:rgba(239,68,68,.2)!important}
@@ -119,14 +123,14 @@ body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;
 <!-- ===== MENU ===== -->
 <div class="screen show" id="menu">
   <h1>STRESS</h1>
-  <p class="tagline">A simple game of pressure. Surround. Stress. Shatter. Capture the Crown.</p>
+  <p class="tagline">A simple game of pressure. Push forward. Rotate before you crack. Capture the Crown.</p>
   <button class="mbtn" onclick="startGame('ai')">VS COMPUTER</button>
   <button class="mbtn" onclick="startGame('2p')">TWO PLAYERS</button>
   <div class="rules-inline">
     <span class="rnum">1.</span> Move a piece <b>1–2 squares</b> in any direction. The <b>★&nbsp;Crown</b> moves only 1.<br>
     <span class="rnum">2.</span> <b>Land on</b> an enemy to capture it.<br>
-    <span class="rnum">3.</span> After each turn, all <b>unmoved</b> pieces next to enemies gain <b>+1 stress per enemy</b>.<br>
-    <span class="rnum">4.</span> Moving <b>resets stress</b>. At stress 4, pieces <b>shatter</b>. ★ can't shatter.<br>
+    <span class="rnum">3.</span> After each turn, <b>unmoved</b> pieces past the <b>center line</b> gain <b>+1 stress</b>.<br>
+    <span class="rnum">4.</span> Moving <b>resets stress</b>. At stress 3, pieces <b>shatter</b>. ★ can't shatter.<br>
     <span class="rnum">5.</span> <b>Capture the ★</b> to win. 30s per turn.
   </div>
   <div class="credit">Made by Paul</div>
@@ -224,7 +228,7 @@ function toggleSound(){soundOn=!soundOn;document.getElementById('sndbtn').textCo
 // ============================================================
 //  CONSTANTS & STATE
 // ============================================================
-const SZ=7,STRESS_MAX=4;
+const SZ=7,STRESS_MAX=3;
 let board,cur,sel,vmoves,mode,over,tmr,tint,lastMv,caps,hist,noCapTurns,animating;
 
 function P(player,crown){return{p:player,c:crown,s:0}}
@@ -276,26 +280,21 @@ function allMoves(pl,b){
 // ============================================================
 //  STRESS SYSTEM
 // ============================================================
-function adjEnemyCount(r,c,pl,b){
-  let n=0;const en=pl===1?2:1;
-  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
-    if(!dr&&!dc)continue;
-    const nr=r+dr,nc=c+dc;
-    if(inB(nr,nc)&&b[nr][nc]&&b[nr][nc].p===en)n++;
-  }
-  return n;
-}
+// Enemy territory: your pieces past the center line gain stress.
+// Blue (p1) starts rows 5-6: enemy zone = rows 0-3 (top half + center)
+// Red (p2) starts rows 0-1: enemy zone = rows 3-6 (bottom half + center)
+// Center row (3) is contested — stressful for BOTH sides.
+function inEnemyZone(r,pl){return pl===1?r<=3:r>=3}
 
-// Apply stress to ALL unmoved pieces (both sides). movedR/movedC = the piece that moved.
+// Apply stress to ALL unmoved pieces in enemy territory.
+// movedR/movedC = the piece that just moved (stress reset already).
 // Returns array of shattered positions.
 function applyStress(b,player,movedR,movedC){
-  // Gain stress — applies to BOTH players' pieces
   for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
     const pc=b[r][c];
     if(!pc||pc.c)continue;                // skip null, crown
     if(r===movedR&&c===movedC)continue;    // skip the piece that moved
-    const adj=adjEnemyCount(r,c,pc.p,b);
-    if(adj>0)pc.s=Math.min(pc.s+adj,STRESS_MAX);
+    if(inEnemyZone(r,pc.p))pc.s=Math.min(pc.s+1,STRESS_MAX);
   }
   // Shatter + chain
   const shattered=[];
@@ -469,10 +468,10 @@ function evaluate(b){
     // Material
     sc+=sign*(pc.c?800:100);
     // Stress penalty — high stress means piece is about to shatter
-    if(!pc.c)sc-=sign*pc.s*25;
-    // Advancement bonus
-    if(pc.p===2)sc+=r*2*sign;
-    if(pc.p===1)sc+=(SZ-1-r)*2*(-sign);
+    if(!pc.c)sc-=sign*pc.s*35;
+    // Advancement: reward pushing into enemy territory (but stress is the cost)
+    if(pc.p===2)sc+=r*3*sign;
+    if(pc.p===1)sc+=(SZ-1-r)*3*(-sign);
     // Crown safety: adjacency to friends
     if(pc.c){
       let friends=0;
@@ -482,18 +481,8 @@ function evaluate(b){
       }
       sc+=sign*friends*12;
     }
-    // Surrounding bonus: count enemy stress we're contributing to
-    if(!pc.c){
-      const en=pc.p===1?2:1;
-      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
-        if(!dr&&!dc)continue;
-        const nr=r+dr,nc=c+dc;
-        if(inB(nr,nc)&&b[nr][nc]&&b[nr][nc].p===en&&!b[nr][nc].c){
-          sc+=sign*8; // reward surrounding enemies
-          sc+=sign*b[nr][nc].s*4; // bonus if enemy already stressed
-        }
-      }
-    }
+    // Penalize pieces deep in enemy territory with high stress (about to shatter)
+    if(!pc.c&&inEnemyZone(r,pc.p)&&pc.s>=2)sc-=sign*40;
   }
   // Noise: makes AI occasionally misjudge positions (beatable but competent)
   sc+=Math.random()*50-25;
@@ -658,6 +647,8 @@ function renderCell(r,c,hide){
   if(!cell)return;
   // Compute class
   let cls='cell '+((r+c)%2===0?'a':'b');
+  if(r<=3)cls+=' ezone'; // top half = enemy territory for blue
+  if(r===3)cls+=' midline'; // center divider
   if(lastMv&&((lastMv.fr===r&&lastMv.fc===c)||(lastMv.tr===r&&lastMv.tc===c)))cls+=' last';
   if(sel&&sel.r===r&&sel.c===c)cls+=' sel';
   const vm=vmoves.find(m=>m.r===r&&m.c===c);
@@ -667,7 +658,7 @@ function renderCell(r,c,hide){
   if(hide){cell.innerHTML='';return}
   const pc=board[r][c];
   if(pc){
-    const pCls='piece '+(pc.c?'crown':'reg')+' p'+pc.p+(!pc.c&&pc.s===1?' s1':!pc.c&&pc.s===2?' s2':!pc.c&&pc.s>=3?' s3':'');
+    const pCls='piece '+(pc.c?'crown':'reg')+' p'+pc.p+(!pc.c&&pc.s===1?' s1':!pc.c&&pc.s>=2?' s2':'');
     let h='<div class="'+pCls+'"></div>';
     if(pc.s>0&&!pc.c){
       h+='<div class="sdots">';
@@ -694,7 +685,7 @@ function render(){
     const nm=cur===1?(mode==='ai'?'Your':"Blue's"):(mode==='ai'?"Computer's":"Red's");
     let panic=0;
     for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++)
-      if(board[r][c]&&board[r][c].p===cur&&!board[r][c].c&&board[r][c].s>=3)panic++;
+      if(board[r][c]&&board[r][c].p===cur&&!board[r][c].c&&board[r][c].s>=2)panic++;
     if(panic>0)setStatus(nm+' turn — '+panic+' piece'+(panic>1?'s':'')+' critical!',true);
     else setStatus(nm+' turn · Turn '+(hist.length+1));
   }

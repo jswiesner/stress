@@ -681,10 +681,11 @@ function renderCell(r,c,hide){
   if(!cell)return;
   // Compute class
   let cls='cell '+((r+c)%2===0?'a':'b');
-  // Territory zones: rows 0-2 = deep red zone, row 3 = contested, rows 4-6 = deep blue zone
+  // Territory zones: rows 0-2 = red home, row 3 = neutral center, rows 4-6 = blue home
   if(r<=2)cls+=' ezone ezone-deep';      // deep red territory
-  else if(r===3)cls+=' ezone midline';    // contested center
+  else if(r===3)cls+=' ezone';            // contested center
   else if(r>=4)cls+=' ezone';             // blue home (red's enemy zone)
+  if(r===2)cls+=' midline';              // center line between rows 2 and 3
   if(lastMv&&((lastMv.fr===r&&lastMv.fc===c)||(lastMv.tr===r&&lastMv.tc===c)))cls+=' last';
   if(sel&&sel.r===r&&sel.c===c)cls+=' sel';
   const vm=vmoves.find(m=>m.r===r&&m.c===c);

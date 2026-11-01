@@ -91,9 +91,13 @@ else {
     console.log(`[${Math.round((Date.now() - t0) / 60e3)} min] positions ${tally.positions} | win in 4: ${by(4).length} (${clean(4)} unique until the finish) | win in 5: ${by(5).length} (${clean(5)}) | skipped ${JSON.stringify(tally.skips)}`);
   };
   const timer = setInterval(report, 5 * 60e3);
-  let running = threads;
-  for (let t = 0; t < threads; t++) {
-    const w = new Worker(__filename, { workerData: { seed0: 500000 + t * 100000 + (Date.now() % 9973) * 7, deadline } });
+  let running = 0, spawned = 0;
+  const finish = () => { clearInterval(timer); save(); report(); console.log('wrote ' + OUT); process.exit(0); };
+  // Each worker gets room for big proofs; one that still runs out of memory is replaced
+  // (with fresh seeds) until the deadline, so a long run keeps all its threads busy.
+  function spawn() {
+    running++;
+    const w = new Worker(__filename, { workerData: { seed0: 500000 + spawned++ * 100000 + (Date.now() % 9973) * 7, deadline }, resourceLimits: { maxOldGenerationSizeMb: 3072 } });
     w.on('message', m => {
       if (m.type === 'found') {
         const k = m.puzzle.rows.join('/') + m.puzzle.stress.join(',');
@@ -102,11 +106,12 @@ else {
       else if (m.type === 'skip') { const k = m.n + ':' + m.why; tally.skips[k] = (tally.skips[k] || 0) + 1; }
       else if (m.type === 'done') w.finished = true;
     });
-    w.on('error', e => console.error('worker stopped:', e && e.message));
-    // A worker that ends for any reason (done, or out of memory on a huge proof) is accounted for.
+    w.on('error', e => console.error('worker stopped (' + (e && e.message) + '), ' + (Date.now() < deadline - 60e3 ? 'starting another' : 'not replaced')));
     w.on('exit', () => {
-      if (--running > 0) return;
-      clearInterval(timer); save(); report(); console.log('wrote ' + OUT); process.exit(0);
+      running--;
+      if (!w.finished && Date.now() < deadline - 60e3) spawn();
+      else if (running === 0) finish();
     });
   }
+  for (let t = 0; t < threads; t++) spawn();
 }

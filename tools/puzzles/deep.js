@@ -9,11 +9,11 @@
  * its whole line against the most stubborn defense is stored, with how many moves
  * win at each step.
  *
- *   node tools/puzzles/deep.js [--minutes 90] [--threads 3]
+ *   node tools/puzzles/deep.js [--minutes 90] [--threads 3] [--out FILE]
  *
- * Results stream into tools/puzzles/deep-candidates.json (rewritten as they
- * arrive, so a stopped run keeps what it found). tools/puzzles/build.js turns
- * them into packs.
+ * Results stream into tools/puzzles/deep-candidates.json, or FILE (rewritten as
+ * they arrive, so a stopped run keeps what it found, and a new run adds to it).
+ * tools/puzzles/build.js turns them into packs.
  */
 'use strict';
 const os = require('os');
@@ -23,7 +23,7 @@ const { Worker, isMainThread, parentPort, workerData } = require('worker_threads
 const L = require('./lib.js');
 const { R, S, AI } = L;
 
-const OUT = path.join(__dirname, 'deep-candidates.json');
+const DEFAULT_OUT = path.join(__dirname, 'deep-candidates.json');
 
 function work({ seed0, deadline }) {
   const seen = new Set();
@@ -79,6 +79,7 @@ else {
   const args = process.argv.slice(2), opt = {};
   for (let i = 0; i < args.length; i += 2) opt[args[i].replace(/^--/, '')] = args[i + 1];
   const minutes = +opt.minutes || 90, threads = +opt.threads || Math.max(1, Math.min(3, os.cpus().length - 1));
+  const OUT = opt.out ? path.resolve(opt.out) : DEFAULT_OUT;
   const deadline = Date.now() + minutes * 60e3, t0 = Date.now();
   const found = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : [];
   const keys = new Set(found.map(p => p.rows.join('/') + p.stress.join(',')));

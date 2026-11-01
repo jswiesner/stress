@@ -7,7 +7,7 @@
   const $ = id => document.getElementById(id);
 
   const app = {
-    version: '3.1.0',
+    version: '3.1.1',
     store: Store,
     settings: Store.loadSettings(),
     profile: Store.loadProfile(),

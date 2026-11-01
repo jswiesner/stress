@@ -1,6 +1,6 @@
 {
   "name": "stress",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "private": true,
   "description": "Stress: the three-minute strategy game. Raid the enemy half, rattle their pieces, crack their nerve.",
   "scripts": {

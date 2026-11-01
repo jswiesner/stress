@@ -6,6 +6,7 @@ const S = require('../src/solver.js');
 const DATA = require('../src/data/puzzles.js');
 
 const crypto = require('crypto');
+const L = require('../tools/puzzles/lib.js');
 const all = DATA.packs.flatMap(p => p.puzzles).concat(DATA.daily);
 const shallow = all.filter(p => p.n <= 3);
 const deep = all.filter(p => p.n >= 4);
@@ -17,7 +18,7 @@ const sample = list => (PROVE_ALL ? list : [list[0], list[Math.floor(list.length
 
 test('the collection has five packs and a daily set, with unique ids', () => {
   assert.deepEqual(DATA.packs.map(p => [p.id, p.n]), [['warmup', 1], ['tactics', 2], ['mastery', 3], ['expert', 4], ['grandmaster', 5]]);
-  for (const pack of DATA.packs) assert.ok(pack.puzzles.length >= 40, pack.id + ' has a real pack of puzzles');
+  assert.deepEqual(DATA.packs.map(p => p.puzzles.length), [40, 60, 50, 50, 50]);
   assert.ok(DATA.daily.length >= 100, 'months of daily puzzles');
   const ids = new Set(all.map(p => p.id));
   assert.equal(ids.size, all.length);
@@ -38,15 +39,33 @@ test('every puzzle is a legal position with Blue to move and both Crowns on the 
   }
 });
 
-test('shipped puzzles never change under players: same ids, same positions, same daily rotation', () => {
-  // Fingerprints of the 3.0 collection. Packs may be reordered; ids must keep their positions.
-  const fp = list => crypto.createHash('sha256').update(list.map(z => z.id + ':' + z.rows.join('/') + ':' + z.stress + ':' + JSON.stringify(z.hits) + ':' + z.ply + ':' + z.solution).join('|')).digest('hex').slice(0, 16);
-  const byId = list => list.slice().sort((a, b) => a.id.localeCompare(b.id));
-  const pack = id => DATA.packs.find(p => p.id === id).puzzles;
-  assert.equal(fp(byId(pack('warmup'))), '29742497c553806d');
-  assert.equal(fp(byId(pack('tactics'))), 'ffd246bb2f5b7766');
-  assert.equal(fp(byId(pack('mastery'))), '6c8d2d99c41eba0a');
-  assert.equal(fp(DATA.daily), '6441215353098045', 'the daily rotation is in its original order');
+test('a puzzle id always means the puzzle it shipped as, and retired ids never come back', () => {
+  const reg = require('../tools/puzzles/shipped.json');
+  for (const z of all) assert.equal(reg.ids[z.id], L.fingerprint(z), z.id + ' matches the registry');
+  for (const id of reg.retired) assert.ok(!all.some(z => z.id === id), id + ' is retired');
+  // The registry only grows: every id shipped in 3.0 and 3.1 keeps its original fingerprint.
+  const ids = [];
+  const add = (prefix, count, width) => { for (let i = 1; i <= count; i++) ids.push(prefix + String(i).padStart(width, '0')); };
+  add('w', 40, 2); add('t', 60, 2); add('m', 50, 2); add('e', 50, 2); add('g', 50, 2); add('d', 120, 3);
+  assert.equal(crypto.createHash('sha256').update(ids.map(id => id + ':' + reg.ids[id]).join('|')).digest('hex').slice(0, 16), '0367b5fe92fb7357');
+});
+
+test('the daily rotation keeps its order: each day holds its original puzzle or a replacement made for that day', () => {
+  assert.equal(DATA.daily.length, 120);
+  DATA.daily.forEach((z, i) => {
+    const original = 'd' + String(i + 1).padStart(3, '0');
+    assert.ok(z.id === original || +z.id.slice(1) > 120, 'day ' + (i + 1) + ' holds ' + z.id);
+  });
+});
+
+test('no near-duplicates within a pack or within the daily rotation, mirror images included', () => {
+  for (const [name, list] of DATA.packs.map(p => [p.name, p.puzzles]).concat([['daily', DATA.daily]])) {
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        assert.ok(!L.nearDuplicate(list[i], list[j]), name + ': ' + list[i].id + ' and ' + list[j].id + ' look almost the same ' + JSON.stringify(L.likeness(list[i], list[j])));
+      }
+    }
+  }
 });
 
 test('every puzzle up to 3 moves is a forced win in exactly its number of moves, and the stored answer works', () => {

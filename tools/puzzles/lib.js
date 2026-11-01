@@ -116,4 +116,51 @@ function grade(p, budget) {
   return { miss: +miss.toFixed(2), quiet, tempting, stubborn, score: +score.toFixed(1) };
 }
 
-module.exports = { R, S, AI, rowsOf, mirror, hitsOf, stateOf, parse, solveLine, replay, grade };
+// ---- telling near-duplicates apart -------------------------------------------------
+// Puzzles from the same game, or from mirror-image games, can look almost alike. The rules
+// are symmetric left to right, so a mirrored board is the same puzzle in disguise.
+const flipRow = row => row.split('').reverse().join('');
+const flipSquare = sq => String.fromCharCode(103 - (sq.charCodeAt(0) - 97)) + sq[1]; // a <-> g
+const flipMove = m => flipSquare(m.slice(0, 2)) + '-' + flipSquare(m.slice(3));
+const answerOf = p => p.solution || p.line[0];
+function piecesOf(rows) {
+  const out = new Map();
+  rows.forEach((row, r) => { for (let c = 0; c < 7; c++) if (row[c] !== '.') out.set(r * 7 + c, row[c]); });
+  return out;
+}
+
+/*
+ * How alike two puzzles look, compared directly and mirrored, whichever is closer:
+ * moved = pieces not standing on the same square as the same piece in the other puzzle
+ * (out of total, the larger piece count); same = same answer (mirrored too); close = both
+ * sides' Stress within 1.
+ */
+function likeness(p, q) {
+  const close = Math.abs(p.stress[0] - q.stress[0]) <= 1 && Math.abs(p.stress[1] - q.stress[1]) <= 1;
+  let best = null;
+  for (const mirrored of [false, true]) {
+    const a = piecesOf(p.rows), b = piecesOf(mirrored ? q.rows.map(flipRow) : q.rows);
+    let common = 0;
+    for (const [sq, ch] of a) if (b.get(sq) === ch) common++;
+    const total = Math.max(a.size, b.size);
+    const same = answerOf(p) === (mirrored ? flipMove(answerOf(q)) : answerOf(q));
+    const o = { moved: total - common, total, same, close, mirrored };
+    if (!best || o.moved < best.moved || (o.moved === best.moved && o.same && !best.same)) best = o;
+  }
+  return best;
+}
+
+/*
+ * Near-duplicates: at most one piece differs; or two, with the same answer or nearly the
+ * same Stress; or three on a busy board (8+ pieces) with the same answer and Stress.
+ */
+function nearDuplicate(p, q) {
+  const o = likeness(p, q);
+  return o.moved <= 1 || (o.moved <= 2 && (o.same || o.close)) || (o.moved <= 3 && o.same && o.close && o.total >= 8);
+}
+
+// Identity of a shipped puzzle: an id must always mean exactly this.
+const crypto = require('crypto');
+const fingerprint = z => crypto.createHash('sha256').update([z.rows.join('/'), z.stress.join(','), JSON.stringify(z.hits), z.ply, answerOf(z)].join('|')).digest('hex').slice(0, 16);
+
+module.exports = { R, S, AI, rowsOf, mirror, hitsOf, stateOf, parse, solveLine, replay, grade, likeness, nearDuplicate, fingerprint };

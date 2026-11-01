@@ -24,6 +24,7 @@ const path = require('path');
 const R = require('../../src/rules.js');
 const S = require('../../src/solver.js');
 const AI = require('../../src/ai.js');
+const { nearDuplicate } = require('./lib.js');
 
 const all = require('./candidates.json').filter(p => (p.ends === 'stress' || p.ends === 'crown') && p.ply < 60);
 const rng = AI.makeRng(20261101);
@@ -38,6 +39,8 @@ function pick(filter, count, prefer) {
   for (const p of pool) {
     if (out.length >= count) break;
     if (used.has(keyOf(p))) continue;
+    // Positions from one game, or mirror-image games, can look almost alike: one per look.
+    if (out.some(q => nearDuplicate(q, p))) continue;
     // Re-prove with the solver: exact distance and the stored first move must still win.
     const st = R.fromRows(p.rows, { stress: p.stress, hits: p.hits, ply: p.ply });
     if (S.winDistance(st, p.n, 6e6) !== p.n) continue;

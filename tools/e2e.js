@@ -162,7 +162,14 @@ async function solveWithHints(page) {
       ok(await solveWithHints(page), 'daily puzzle solved with hints');
       ok(/Daily solved/.test(await page.textContent('.res-title')), 'daily result');
       ok(await visible(page, '[data-res="share"]'), 'daily result can be shared');
-      await page.click('[data-res="home"]');
+      // More puzzles goes straight to the next unsolved pack puzzle.
+      await page.click('[data-res="more-puzzles"]');
+      ok(await screenIs(page, 'game'), 'More puzzles opens a puzzle');
+      ok(/Puzzle Warm-up/.test(await page.textContent('#g-title')), 'the next puzzle is from the first pack');
+      await page.click('#g-menu');
+      await page.click('[data-act="quit"]');
+      ok(await screenIs(page, 'puzzles'), 'quitting it lands on the puzzles screen');
+      await page.click('[data-back]:visible');
       ok(/Done/.test(await page.textContent('#h-daily')), 'home shows the daily as done');
 
       // 4. a pack puzzle, then the next one
@@ -172,9 +179,52 @@ async function solveWithHints(page) {
       ok(await solveWithHints(page), 'warm-up puzzle 1 solved');
       await page.click('[data-res="next-puzzle"]');
       ok(await screenIs(page, 'game'), 'next puzzle opens');
-      await page.click('#g-menu');
-      await page.click('[data-act="quit"]');
+      // A miss, then a retry: the attempt counter shows.
+      let missed = false;
+      for (let i = 0; i < 4 && !missed; i++) {
+        const st = await waitTurn(page, '#board');
+        if (st === 'sheet') { missed = true; break; }
+        if (st === 'over') break;
+        await randomMove(page, 'Blue');
+        missed = (await waitTurn(page, '#board')) === 'sheet';
+      }
+      if (missed) {
+        await page.click('[data-act="retry"]');
+        ok(/Try 2/.test(await page.textContent('#g-sub')), 'the retry is counted as try 2');
+      }
+      if (!(await screenIs(page, 'results'))) { await page.click('#g-menu'); await page.click('[data-act="quit"]'); }
+      else await page.click('[data-res="puzzles"]');
       ok(await screenIs(page, 'puzzles'), 'quitting a puzzle returns to puzzles');
+      // The hard packs: open Expert (seed the five solves per pack it needs) and solve one.
+      await page.evaluate(() => {
+        const app = StressApp;
+        for (const pack of StressPuzzles.packs.slice(0, 3)) pack.puzzles.slice(0, 5).forEach(z => { app.profile.puzzles[z.id] = { solved: true, hinted: true, tries: 1, clean: false }; });
+        app.saveProfile();
+        StressScreens.puzzles();
+      });
+      ok(!!(await page.$('[data-pack="expert"]')), 'Expert opens after five solves in each earlier pack');
+      ok(!(await page.$('[data-pack="grandmaster"]')), 'Grandmaster stays locked until five Expert solves');
+      await page.click('[data-pack="expert"]');
+      const first = await page.$eval('[data-pack="expert"]', b => b.closest('.pack').querySelector('[data-pz]').dataset.pz);
+      await page.click(`[data-pz="${first}"]`);
+      ok(/Expert/.test(await page.textContent('#g-title')), 'an Expert puzzle opens');
+      ok(/Win in 4/.test(await page.textContent('#g-sub')), 'it is a win in 4');
+      // Only one first move wins, so a wrong one fails at once, with no search.
+      await waitTurn(page, '#board');
+      const tw = Date.now();
+      await randomMove(page, 'Blue');
+      if ((await waitTurn(page, '#board')) === 'sheet') {
+        ok(Date.now() - tw < 4000, 'a wrong first move on a deep puzzle is caught at once (' + (Date.now() - tw) + ' ms)');
+        await page.click('[data-act="retry"]');
+        ok(/Try 2/.test(await page.textContent('#g-sub')), 'the retry is try 2');
+      } else {
+        await page.click('#g-menu');
+        await page.click('[data-act="restart"]');
+      }
+      const t0 = Date.now();
+      ok(await solveWithHints(page), 'the Expert puzzle is solved by following its hints');
+      ok(Date.now() - t0 < 30000, 'deep puzzles answer quickly (' + (Date.now() - t0) + ' ms)');
+      await page.click('[data-res="puzzles"]');
       await page.click('[data-back]:visible');
 
       // 5. quick match: save, quit, resume, finish

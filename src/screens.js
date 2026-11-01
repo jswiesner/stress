@@ -87,17 +87,19 @@
       '<span class="streak">' + I.flame + streak + '</span></button>';
     html += '<p class="section-title">Packs</p><div class="packs">';
     for (const pack of Puzzles.packs) {
-      const solved = pack.puzzles.filter(z => p.puzzles[z.id] && p.puzzles[z.id].solved).length;
+      const solved = P.packSolved(p, pack);
       // Packs open in order: the next pack unlocks once you've solved 5 in the one before.
       const i = Puzzles.packs.indexOf(pack), prev = Puzzles.packs[i - 1];
-      const locked = prev && prev.puzzles.filter(z => p.puzzles[z.id] && p.puzzles[z.id].solved).length < 5;
-      html += '<div class="pack"><div class="pack-head"><div><h3>' + esc(pack.name) + '</h3><p>' + esc(locked ? 'Solve 5 in ' + prev.name + ' to unlock' : pack.blurb + ' · ' + solved + ' of ' + pack.puzzles.length) + '</p></div>' +
+      const locked = !P.packUnlocked(p, Puzzles.packs, i);
+      html += '<div class="pack' + (pack.n >= 4 ? ' hard' : '') + '"><div class="pack-head"><div><h3>' + esc(pack.name) + '</h3><p>' + esc(locked ? 'Solve ' + P.PACK_UNLOCK + ' in ' + prev.name + ' to unlock' : pack.blurb + ' · ' + solved + ' of ' + pack.puzzles.length) + '</p></div>' +
         (locked ? '<span class="lock">' + I.lock + '</span>' : '<button class="btn small" data-pack="' + pack.id + '">' + (openPack === pack.id ? 'Hide' : 'Open') + '</button>') + '</div>' +
         '<div class="progress"><i style="width:' + Math.round(100 * solved / pack.puzzles.length) + '%"></i></div>';
       if (openPack === pack.id && !locked) {
+        // Gold star: solved without a hint. Check: solved with one. A dot: tried, not solved yet.
         html += '<div class="puzzle-grid">' + pack.puzzles.map((z, k) => {
-          const s = p.puzzles[z.id] && p.puzzles[z.id].solved;
-          return '<button class="pz' + (s ? ' solved' : '') + '" data-pz="' + z.id + '" aria-label="Puzzle ' + (k + 1) + (s ? ', solved' : '') + '">' + (s ? I.check : k + 1) + '</button>';
+          const rec = p.puzzles[z.id] || {}, s = !!rec.solved, tried = !s && rec.tries > 0;
+          const label = 'Puzzle ' + (k + 1) + (s ? (rec.clean ? ', solved without a hint' : ', solved with a hint') : tried ? ', ' + rec.tries + (rec.tries === 1 ? ' try' : ' tries') + ' so far' : '');
+          return '<button class="pz' + (s ? ' solved' : '') + (s && rec.clean ? ' clean' : '') + (tried ? ' tried' : '') + '" data-pz="' + z.id + '" aria-label="' + label + '">' + (s ? (rec.clean ? I.star : I.check) : k + 1) + '</button>';
         }).join('') + '</div>';
       }
       html += '</div>';
@@ -227,9 +229,11 @@
       title = 'You’re ready!'; sub = 'You know how to raid, retreat, capture and crack. Time for your first rival.';
       primary = ['next-rival', 'Meet ' + Rivals.RIVALS[0].name];
     } else if (mode === 'puzzle') {
-      title = won ? (result.daily ? 'Daily solved!' : 'Solved!') : 'Not this time';
-      sub = won ? 'Won in ' + result.myMoves + ' move' + (result.myMoves === 1 ? '' : 's') + (result.hinted ? ' with a hint.' : '.') : reason;
-      primary = result.daily ? ['home', 'Done'] : ['next-puzzle', 'Next puzzle'];
+      const tries = rewards.tries || result.tries || 1;
+      title = won ? (result.daily ? 'Daily solved!' : tries === 1 && !result.hinted ? 'First try!' : 'Solved!') : 'Not this time';
+      const when = tries > 1 ? ' on try ' + tries : result.daily && !result.hinted ? ' on the first try' : '';
+      sub = won ? 'Won in ' + result.myMoves + ' move' + (result.myMoves === 1 ? '' : 's') + when + (result.hinted ? (when ? ', with a hint.' : ' with a hint.') : '.') : reason;
+      primary = result.daily ? ['more-puzzles', 'More puzzles'] : ['next-puzzle', 'Next puzzle'];
       if (result.daily && won) secondary.push(['share', 'Share']);
       if (!result.daily) secondary.push(['puzzles', 'All puzzles']);
     } else if (mode === 'pvp') {
@@ -259,6 +263,7 @@
     if (levelUp) unl.push([I.trophy, 'Level ' + lv.level + '!', 'You’re now ' + lv.title + '.']);
     if (rewards.streak && result.daily) unl.push([I.flame, rewards.streak + '-day streak', 'Come back tomorrow to keep it going.']);
     rewards.unlocked.forEach(id => { const t = P.THEMES.find(x => x.id === id); unl.push([I.palette, 'New board: ' + t.name, 'Find it in your Collection.']); });
+    if (rewards.newClean && !rewards.firstSolve) unl.push([I.star, 'Clean solve', 'Solved without a hint. This puzzle now has a gold star.']);
     rewards.achievements.forEach(id => { const a = P.ACHIEVEMENTS.find(x => x.id === id); unl.push([I.medal, a.name, a.text]); });
     if (unl.length) html += '<div class="res-unlocks">' + unl.map((u, i) => '<div class="unlock" style="animation-delay:' + (0.6 + i * 0.15) + 's"><span class="badge">' + u[0] + '</span><span><b>' + esc(u[1]) + '</b><span>' + esc(u[2]) + '</span></span></div>').join('') + '</div>';
     if (tip) html += '<p class="res-tip">' + esc(tip) + '</p>';

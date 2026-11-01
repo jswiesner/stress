@@ -134,3 +134,62 @@ test('old or partial saves are filled in without losing progress', () => {
   assert.equal(P.normalize(null).xp, 0);
   assert.equal(Rivals.RIVALS.length * 3, 30, 'thirty stars on the ladder');
 });
+
+test('puzzle attempts: misses are kept until the solve, which reports the try it came on', () => {
+  let p = P.newProfile();
+  p = P.recordTry(p, 'e01');
+  p = P.recordTry(p, 'e01');
+  assert.equal(P.triesSoFar(p, 'e01'), 2);
+  assert.equal(P.solvedCount(p), 0, 'a try is not a solve');
+  const res = P.applyResult(p, { mode: 'puzzle', puzzleId: 'e01', puzzleN: 4, won: true, tries: 3 });
+  assert.equal(res.rewards.tries, 3);
+  assert.deepEqual(res.profile.puzzles.e01, { solved: true, hinted: false, tries: 3, clean: true });
+  assert.equal(P.triesSoFar(res.profile, 'e01'), 0, 'a solved puzzle starts fresh when replayed');
+  assert.equal(P.recordTry(res.profile, 'e01').puzzles.e01.tries, 3, 'replays do not change the record');
+});
+
+test('clean-solve badges: a hinted solve can be upgraded later, without paying XP twice', () => {
+  let res = P.applyResult(P.newProfile(), { mode: 'puzzle', puzzleId: 't07', puzzleN: 2, won: true, hinted: true, tries: 1 });
+  assert.equal(res.profile.puzzles.t07.clean, false);
+  assert.equal(res.rewards.newClean, false);
+  res = P.applyResult(res.profile, { mode: 'puzzle', puzzleId: 't07', puzzleN: 2, won: true, hinted: false, tries: 2 });
+  assert.equal(res.profile.puzzles.t07.clean, true);
+  assert.equal(res.rewards.newClean, true);
+  assert.equal(res.rewards.xp, 0, 'XP only for the first solve');
+  assert.equal(res.profile.puzzles.t07.hinted, true, 'the first solve is remembered as hinted');
+  // 3.0 saves have no clean flag: an unhinted solve counts as clean.
+  const old = P.normalize({ puzzles: { w01: { solved: true, hinted: false }, w02: { solved: true, hinted: true } } });
+  assert.equal(old.puzzles.w01.clean, true);
+  assert.equal(old.puzzles.w02.clean, false);
+});
+
+test('new puzzle achievements: never give up, and grandmaster without a hint', () => {
+  const five = P.applyResult(P.newProfile(), { mode: 'puzzle', puzzleId: 'm03', puzzleN: 3, won: true, tries: 5 });
+  assert.ok(five.rewards.achievements.includes('persistent'));
+  const gm = P.applyResult(P.newProfile(), { mode: 'puzzle', puzzleId: 'g01', puzzleN: 5, won: true, tries: 1 });
+  assert.ok(gm.rewards.achievements.includes('grandmaster'));
+  const hinted = P.applyResult(P.newProfile(), { mode: 'puzzle', puzzleId: 'g02', puzzleN: 5, won: true, hinted: true, tries: 1 });
+  assert.ok(!hinted.rewards.achievements.includes('grandmaster'));
+});
+
+test('packs open in order, and the next puzzle skips solved ones and locked packs', () => {
+  const packs = [
+    { id: 'a', puzzles: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].map(id => ({ id })) },
+    { id: 'b', puzzles: ['b1', 'b2'].map(id => ({ id })) }
+  ];
+  let p = P.newProfile();
+  assert.ok(P.packUnlocked(p, packs, 0));
+  assert.ok(!P.packUnlocked(p, packs, 1));
+  assert.equal(P.nextPuzzle(p, packs).id, 'a1');
+  const solve = id => { p = P.applyResult(p, { mode: 'puzzle', puzzleId: id, puzzleN: 1, won: true }).profile; };
+  ['a1', 'a2', 'a4'].forEach(solve);
+  assert.equal(P.nextPuzzle(p, packs, 'a2').id, 'a3');
+  assert.equal(P.nextPuzzle(p, packs, 'a3').id, 'a5', 'skips solved a4');
+  ['a3', 'a5'].forEach(solve);
+  assert.ok(P.packUnlocked(p, packs, 1), 'five solves open the next pack');
+  assert.equal(P.nextPuzzle(p, packs, 'a5').id, 'a6');
+  solve('a6');
+  assert.equal(P.nextPuzzle(p, packs, 'a6').id, 'b1', 'moves on to the next pack');
+  ['b1', 'b2'].forEach(solve);
+  assert.equal(P.nextPuzzle(p, packs, 'b2'), null, 'everything solved');
+});

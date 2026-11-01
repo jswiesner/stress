@@ -60,6 +60,7 @@
   }
 
   // ---------------------------------------------------------------- helpers
+  const parseMove = name => R.makeMove(R.squareIndex(name.slice(0, 2)), R.squareIndex(name.slice(3)));
   const vsComputer = () => M && (M.mode === 'rival' || M.mode === 'quick');
   const isComputerTurn = () => !!M && M.state.winner === -1 && M.state.turn !== HUMAN && (vsComputer() || M.mode === 'puzzle');
   const nameOf = p => (p === HUMAN && M.mode !== 'pvp' ? 'You' : M.opponent ? M.opponent.short || M.opponent.name : R.PLAYER_NAMES[p]);
@@ -97,7 +98,11 @@
   // ---------------------------------------------------------------- starting
   /**
    * cfg: { mode, state, opponent?: { name, short, art(mood), lines, level, style, budget, id },
-   *        puzzle?: { id, n, daily, solution }, clocks?, history?, stats?, onFinish(result, match) }
+   *        puzzle?: { id, n, daily, solution, line?, duals?, alts?, tries? }, clocks?, history?, stats?, onFinish(result, match) }
+   * A puzzle's line is its whole proven solution, [your move, reply, ...]; duals[k] is how many
+   * moves win at your k-th turn, and alts[k] (for turns too deep to check on a phone) maps every
+   * other winning move to its reply. Deep puzzles carry all three, so replies and hints are
+   * instant and a wrong move fails at once; shallow turns are checked by the solver as before.
    */
   function start(cfg) {
     app = cfg.app;
@@ -111,6 +116,11 @@
       puzzle: cfg.puzzle || null,
       movesLeft: cfg.puzzle ? cfg.puzzle.n : 0,
       hinted: false,
+      line: cfg.puzzle && cfg.puzzle.line ? cfg.puzzle.line.map(parseMove) : null,
+      lineAt: cfg.puzzle && cfg.puzzle.line ? 0 : -1,
+      tries: cfg.puzzle ? (cfg.puzzle.tries || 0) + 1 : 0, // this attempt's number
+      moved: false, // you've moved in this attempt
+      logged: false, // this attempt already counted as a miss
       clocks: cfg.clocks || null,
       history: cfg.history || [],
       stats: cfg.stats || { peak: [0, 0], maxRaid: 0, myMoves: 0 },
@@ -227,13 +237,13 @@
     hint = null;
     const before = M.state, mover = before.turn;
     if (M.mode !== 'puzzle') M.history.push({ state: R.serialize(before), clocks: M.clocks ? M.clocks.slice() : null, stats: JSON.parse(JSON.stringify(M.stats)) });
-    if (mover === HUMAN) M.stats.myMoves++;
+    if (mover === HUMAN) { M.stats.myMoves++; M.moved = true; }
     const result = R.apply(before, m);
     render();
     await view.animate(result.events, hooks);
     if (!M || M.state !== before) return; // left or undid during the animation
     M.state = result.state;
-    if (M.mode === 'puzzle' && mover === HUMAN && M.state.winner === -1) return puzzleCheck();
+    if (M.mode === 'puzzle' && mover === HUMAN && M.state.winner === -1) return puzzleCheck(m);
     if (M.mode === 'puzzle' && mover !== HUMAN) M.movesLeft--;
     if (vsComputer() && M.state.winner === -1) oppMood(restingOppMood());
     persist();
@@ -241,7 +251,23 @@
   }
 
   // After the player's move in a puzzle: is the win still forced?
-  function puzzleCheck() {
+  function puzzleCheck(move) {
+    if (M.line && M.lineAt >= 0) {
+      const step = M.lineAt / 2, main = M.line[M.lineAt], reply = M.line[M.lineAt + 1];
+      if (move === main && reply !== undefined) {
+        M.lineAt += 2;
+        M.defense = reply;
+        return beginTurn();
+      }
+      M.lineAt = -1; // off the stored line: from here the solver judges
+      // Deep steps list every other winning move with its reply, so no search is needed.
+      const known = M.puzzle.alts && M.puzzle.alts[step];
+      if (known) {
+        const alt = known[R.moveName(move)];
+        if (alt) { M.defense = parseMove(alt); return beginTurn(); }
+        if (move !== main) return puzzleFail();
+      } else if (move !== main && (M.puzzle.duals || [])[step] === 1) return puzzleFail();
+    }
     phase = 'thinking';
     render();
     const t = ++ticket, state = M.state;
@@ -255,6 +281,8 @@
 
   function puzzleFail() {
     phase = 'idle';
+    if (!M.logged && app.onPuzzleTry) app.onPuzzleTry(M.puzzle.id);
+    M.logged = true;
     Sound.play('wrong');
     Haptics.play('warning');
     render();
@@ -277,6 +305,14 @@
     ticket++;
     M.state = R.deserialize(M.start);
     M.movesLeft = M.puzzle.n;
+    M.stats.myMoves = 0;
+    M.lineAt = M.line ? 0 : -1;
+    // A restart after moving counts as a try, like a miss does.
+    if (M.moved) {
+      if (!M.logged && app.onPuzzleTry) app.onPuzzleTry(M.puzzle.id);
+      M.tries++;
+    }
+    M.moved = M.logged = false;
     phase = 'idle';
     selected = preview = -1;
     hint = null;
@@ -295,6 +331,7 @@
       render();
       Sound.play('pop');
     };
+    if (M.line && M.lineAt >= 0) return apply(M.line[M.lineAt]);
     if (atStart) return apply(R.makeMove(R.squareIndex(M.puzzle.solution.slice(0, 2)), R.squareIndex(M.puzzle.solution.slice(3))));
     phase = 'thinking';
     render();
@@ -376,7 +413,8 @@
       sub.innerHTML = '';
       const goal = document.createElement('span');
       goal.className = 'goalbar';
-      goal.innerHTML = 'Win in ' + M.puzzle.n + ' <span class="pips" aria-hidden="true">' + Array.from({ length: M.puzzle.n }, (_, i) => '<i class="' + (i < M.puzzle.n - M.movesLeft ? 'used' : '') + '"></i>').join('') + '</span>';
+      goal.innerHTML = 'Win in ' + M.puzzle.n + ' <span class="pips" aria-hidden="true">' + Array.from({ length: M.puzzle.n }, (_, i) => '<i class="' + (i < M.puzzle.n - M.movesLeft ? 'used' : '') + '"></i>').join('') + '</span>' +
+        (M.tries > 1 ? ' <span class="try">Try ' + M.tries + '</span>' : '');
       sub.appendChild(goal);
     } else if (st.suddenDeath && st.winner === -1) {
       sub.textContent = 'Sudden death: next hit wins';
@@ -517,7 +555,8 @@
       peakStress: Math.max(M.stats.peak[HUMAN], st.stress[HUMAN]), myMoves: M.stats.myMoves, raids: st.dealt[HUMAN],
       maxRaid: M.stats.maxRaid, captures: st.captures.slice(), plies: st.ply,
       rivalId: M.opponent && M.opponent.id, level: M.opponent && M.opponent.level,
-      puzzleId: M.puzzle && M.puzzle.id, puzzleN: M.puzzle && M.puzzle.n, daily: !!(M.puzzle && M.puzzle.daily), hinted: M.hinted
+      puzzleId: M.puzzle && M.puzzle.id, puzzleN: M.puzzle && M.puzzle.n, daily: !!(M.puzzle && M.puzzle.daily), hinted: M.hinted,
+      tries: M.tries
     };
     const done = M.onFinish;
     setTimeout(() => { if (M && M.finished && done) done(result); }, reduced() ? 200 : M.mode === 'puzzle' ? 700 : 1300);

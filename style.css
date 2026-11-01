@@ -283,6 +283,7 @@ p { margin: 0; }
 .goalbar .pips { display: inline-flex; gap: 4px; }
 .goalbar .pips i { width: 12px; height: 12px; border-radius: 50%; background: var(--gold); display: block; }
 .goalbar .pips i.used { background: var(--track); }
+.goalbar .try { padding: 1px 8px; border-radius: 99px; background: var(--gold-soft); color: var(--ink); font-weight: 800; font-size: .72rem; }
 .g-bar { grid-area: bar; display: flex; justify-content: center; gap: 10px; min-height: 46px; }
 .coach {
   position: absolute; z-index: 12; left: 8px; right: 8px; bottom: calc(100% + 8px); display: flex; align-items: center; gap: 10px;
@@ -416,6 +417,11 @@ p { margin: 0; }
 }
 .pz:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line-2); }
 .pz.solved { background: var(--brand); color: var(--on-brand); box-shadow: 0 3px 0 var(--brand-dark); }
+.pz svg { width: 22px; height: 22px; }
+.pz.clean svg { width: 26px; height: 26px; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .18)); }
+.pz.tried { position: relative; }
+.pz.tried::after { content: ""; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+.pack.hard .pack-head h3::after { content: "Hard"; margin-left: 8px; padding: 2px 8px; border-radius: 99px; background: var(--red-soft); color: var(--red); font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; vertical-align: 2px; }
 .pz.locked { opacity: .45; cursor: default; }
 .daily-big { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 16px; border-radius: 24px; background: linear-gradient(135deg, #FFD36B, #FF8D63); color: #3A1A08; box-shadow: 0 5px 0 #D9643F, var(--shadow); border: 0; text-align: left; cursor: pointer; width: 100%; }
 .daily-big:active { transform: translateY(4px); box-shadow: 0 1px 0 #D9643F; }

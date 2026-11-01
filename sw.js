@@ -1,6 +1,6 @@
 /* Offline support: the whole game is cached on first visit and works with no
    connection after that. Bump VERSION when shipping changes. */
-const VERSION = 'stress-3.0.0';
+const VERSION = 'stress-3.1.0';
 const SHELL = [
   './', 'index.html', 'style.css', 'manifest.webmanifest',
   'src/rules.js', 'src/ai.js', 'src/solver.js', 'src/ai-worker.js', 'src/rivals.js', 'src/progress.js', 'src/data/puzzles.js',

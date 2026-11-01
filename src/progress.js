@@ -53,7 +53,7 @@
       xp: 0,
       tutorialDone: false,
       rivals: {}, // id -> { stars, wins, plays }
-      puzzles: {}, // id -> { solved: true, hinted: bool }
+      puzzles: {}, // id -> { solved, hinted (first solve used a hint), tries (attempts it took), clean (ever solved without a hint) }
       daily: { last: null, streak: 0, best: 0, done: {} }, // done: dayKey -> { moves, hinted }
       stats: { games: 0, wins: 0, crowns: 0, cracks: 0, raids: 0, pvp: 0, tutorials: 0, quickLevel: 3 },
       achievements: {}, // id -> dayKey earned
@@ -72,6 +72,11 @@
     out.stats = Object.assign(newProfile().stats, p.stats || {});
     out.rivals = Object.assign({}, p.rivals || {});
     out.puzzles = Object.assign({}, p.puzzles || {});
+    // 3.0 saves predate clean-solve badges: a first solve without a hint was clean.
+    for (const id in out.puzzles) {
+      const rec = out.puzzles[id];
+      if (rec && rec.solved && rec.clean === undefined) out.puzzles[id] = Object.assign({}, rec, { clean: !rec.hinted });
+    }
     out.achievements = Object.assign({}, p.achievements || {});
     out.seen = Object.assign({}, p.seen || {});
     out.v = VERSION;
@@ -126,6 +131,8 @@
     { id: 'puzzler', name: 'Puzzler', text: 'Solve 10 puzzles.', test: p => solvedCount(p) >= 10 },
     { id: 'tactician', name: 'Tactician', text: 'Solve 50 puzzles.', test: p => solvedCount(p) >= 50 },
     { id: 'habit', name: 'Daily habit', text: 'Keep a 7-day puzzle streak.', test: p => p.daily.best >= 7 },
+    { id: 'persistent', name: 'Never give up', text: 'Solve a puzzle on your fifth try or later.', test: (p, r) => !!r && r.mode === 'puzzle' && r.won && (r.tries || 1) >= 5 },
+    { id: 'grandmaster', name: 'Grandmaster', text: 'Solve a win-in-5 puzzle without a hint.', test: (p, r) => !!r && r.mode === 'puzzle' && r.won && (r.puzzleN || 0) >= 5 && !r.hinted },
     { id: 'friends', name: 'Good game', text: 'Finish a two-player game.', test: p => p.stats.pvp > 0 }
   ];
 
@@ -134,8 +141,9 @@
   /**
    * Record a finished game or puzzle and work out the rewards.
    * result: { mode: 'rival' | 'quick' | 'pvp' | 'puzzle' | 'tutorial', won, myStress, peakStress,
-   *           reason, myMoves, raids, maxRaid, rivalId, puzzleId, puzzleN, daily, hinted, level }
-   * Returns { profile, rewards: { xp, before, after, stars, newStars, unlocked, achievements, streak, firstSolve } }.
+   *           reason, myMoves, raids, maxRaid, rivalId, puzzleId, puzzleN, daily, hinted, tries, level }
+   * Returns { profile, rewards: { xp, before, after, stars, newStars, unlocked, achievements, streak, firstSolve,
+   *           tries, newClean } } (tries: the attempt this solve came on; newClean: first solve without a hint).
    */
   function applyResult(profileIn, result, today) {
     const p = normalize(clone(profileIn));
@@ -172,11 +180,21 @@
       p.stats.pvp++;
       rewards.xp = 15;
     } else if (r.mode === 'puzzle') {
-      const rec = p.puzzles[r.puzzleId];
-      if (r.won && !(rec && rec.solved)) {
-        p.puzzles[r.puzzleId] = { solved: true, hinted: !!r.hinted };
-        rewards.firstSolve = true;
-        rewards.xp = 20 * (r.puzzleN || 1) + (r.hinted ? 0 : 10);
+      const rec = p.puzzles[r.puzzleId] || {};
+      if (r.won) {
+        const first = !rec.solved;
+        rewards.tries = Math.max(1, r.tries || 1);
+        rewards.newClean = !r.hinted && !rec.clean;
+        p.puzzles[r.puzzleId] = {
+          solved: true,
+          hinted: first ? !!r.hinted : !!rec.hinted,
+          tries: first ? rewards.tries : rec.tries || rewards.tries,
+          clean: !!rec.clean || !r.hinted
+        };
+        if (first) {
+          rewards.firstSolve = true;
+          rewards.xp = 20 * (r.puzzleN || 1) + (r.hinted ? 0 : 10);
+        }
       }
       if (r.won && r.daily && p.daily.last !== day) {
         const gap = p.daily.last ? dayNumber(day) - dayNumber(p.daily.last) : 99;
@@ -209,6 +227,31 @@
     return { profile: p, rewards };
   }
 
+  // A failed or restarted attempt at a puzzle not yet solved, so the count survives closing the app.
+  function recordTry(profileIn, puzzleId) {
+    const p = normalize(clone(profileIn));
+    const rec = p.puzzles[puzzleId] || { solved: false, tries: 0 };
+    if (!rec.solved) p.puzzles[puzzleId] = Object.assign({}, rec, { solved: false, tries: (rec.tries || 0) + 1 });
+    return p;
+  }
+  // Attempts already spent on a puzzle that isn't solved yet (a solved one starts fresh).
+  const triesSoFar = (p, puzzleId) => { const rec = p.puzzles[puzzleId]; return rec && !rec.solved ? rec.tries || 0 : 0; };
+
+  // Packs open in order: each one unlocks after five solves in the pack before it.
+  const PACK_UNLOCK = 5;
+  const packSolved = (p, pack) => pack.puzzles.filter(z => p.puzzles[z.id] && p.puzzles[z.id].solved).length;
+  const packUnlocked = (p, packs, i) => i === 0 || packSolved(p, packs[i - 1]) >= PACK_UNLOCK;
+
+  // The next puzzle to play: the first unsolved one after `fromId` in its pack, then in
+  // the following unlocked packs, then from the start. null when everything open is solved.
+  function nextPuzzle(p, packs, fromId) {
+    const order = [];
+    packs.forEach((pack, i) => { if (packUnlocked(p, packs, i)) pack.puzzles.forEach(z => order.push(z)); });
+    const at = fromId ? order.findIndex(z => z.id === fromId) : -1;
+    const rotated = order.slice(at + 1).concat(order.slice(0, at + 1));
+    return rotated.find(z => !(p.puzzles[z.id] && p.puzzles[z.id].solved)) || null;
+  }
+
   // The puzzle shown on a given day, cycling through the whole collection.
   function dailyPuzzleIndex(count, today) {
     const n = dayNumber(today || dayKey());
@@ -219,6 +262,7 @@
     VERSION, TITLES, THEMES, ACHIEVEMENTS,
     levelInfo, xpForLevel, titleFor, dayKey, dayNumber, newProfile, normalize,
     totalStars, rivalsBeaten, solvedCount, nextRivalIndex, rivalUnlocked, streakNow,
+    recordTry, triesSoFar, PACK_UNLOCK, packSolved, packUnlocked, nextPuzzle,
     unlockedThemes, starsFor, applyResult, dailyPuzzleIndex
   };
 });

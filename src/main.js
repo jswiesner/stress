@@ -7,7 +7,7 @@
   const $ = id => document.getElementById(id);
 
   const app = {
-    version: '3.0.0',
+    version: '3.1.0',
     store: Store,
     settings: Store.loadSettings(),
     profile: Store.loadProfile(),
@@ -139,12 +139,19 @@
   app.dailyPuzzle = () => Puzzles.daily[P.dailyPuzzleIndex(Puzzles.daily.length)];
   function startPuzzle(z, ctx) {
     const state = R.fromRows(z.rows, { stress: z.stress, hits: z.hits, ply: z.ply });
-    begin({ mode: 'puzzle', state, puzzle: { id: z.id, n: z.n, daily: !!ctx.daily, solution: z.solution, label: ctx.label } }, Object.assign({ mode: 'puzzle', puzzle: z }, ctx));
+    const puzzle = { id: z.id, n: z.n, daily: !!ctx.daily, solution: z.solution, line: z.line, duals: z.duals, alts: z.alts, label: ctx.label, tries: P.triesSoFar(app.profile, z.id) };
+    begin({ mode: 'puzzle', state, puzzle }, Object.assign({ mode: 'puzzle', puzzle: z }, ctx));
     app.toast(ctx.daily ? 'Daily puzzle: win in ' + z.n : 'Win in ' + z.n + (z.n === 1 ? ' move' : ' moves'), 1800);
   }
   app.startPuzzleById = id => {
     const f = findPuzzle(id);
     if (f) startPuzzle(f.puzzle, { pack: f.pack, index: f.index, label: f.pack ? f.pack.name + ' ' + (f.index + 1) : '' });
+  };
+  // A missed or restarted attempt: keep count, even if the app is closed before the solve.
+  app.onPuzzleTry = id => { app.profile = P.recordTry(app.profile, id); app.saveProfile(); };
+  app.startNextPuzzle = fromId => {
+    const next = P.nextPuzzle(app.profile, Puzzles.packs, fromId);
+    if (next) app.startPuzzleById(next.id); else app.show('puzzles');
   };
   app.startDaily = () => {
     const z = app.dailyPuzzle();
@@ -224,11 +231,9 @@
       else app.startPvp();
       return;
     }
-    if (act === 'next-puzzle') {
+    if (act === 'next-puzzle' || act === 'more-puzzles') {
       Match.stop();
-      const pack = ctx.pack, list = pack ? pack.puzzles : [];
-      const next = list.slice(ctx.index + 1).concat(list.slice(0, ctx.index + 1)).find(z => !(app.profile.puzzles[z.id] && app.profile.puzzles[z.id].solved));
-      if (next) app.startPuzzleById(next.id); else app.show('puzzles');
+      app.startNextPuzzle(act === 'next-puzzle' && ctx.puzzle ? ctx.puzzle.id : null);
       return;
     }
     if (act === 'share') share(result);
@@ -241,7 +246,8 @@
   function share(result) {
     const day = P.dayNumber(P.dayKey()) + 1, streak = P.streakNow(app.profile);
     const url = /^https?:/.test(location.protocol) ? location.origin + location.pathname : (STORE_URL || WEB_URL);
-    const text = 'Stress daily #' + day + ' ✅ solved in ' + result.myMoves + (result.hinted ? ' (with a hint)' : '') + '\n🔥 ' + streak + '-day streak' + (url ? '\n' + url : '');
+    const tries = result.tries > 1 ? ' on try ' + result.tries : ' on the first try';
+    const text = 'Stress daily #' + day + ' ✅ solved in ' + result.myMoves + tries + (result.hinted ? ' (with a hint)' : '') + '\n🔥 ' + streak + '-day streak' + (url ? '\n' + url : '');
     const copy = () => {
       try { navigator.clipboard.writeText(text).then(() => app.toast('Copied. Paste it anywhere!'), () => app.toast(text, 4000)); }
       catch (e) { app.toast(text, 4000); }
@@ -333,13 +339,20 @@
     app.applySettings();
     app.saved = Store.loadGame();
     if (app.saved && (!app.saved.state || app.saved.state.winner !== -1)) { Store.clearGame(); app.saved = null; }
-    if (!app.profile.tutorialDone) app.startTutorial();
-    else {
+    if (!app.profile.tutorialDone) {
+      app.profile.seen.whatsNew31 = true; // new players don't need a what's-new note
+      app.saveProfile();
+      app.startTutorial();
+    } else {
       app.show('home');
       if (app.profile.seen.whatsNew3 === false) {
-        app.profile.seen.whatsNew3 = true;
+        app.profile.seen.whatsNew3 = app.profile.seen.whatsNew31 = true;
         app.saveProfile();
         app.toast('Welcome to Stress 3.0: rivals, daily puzzles and a whole new look!', 4200);
+      } else if (!app.profile.seen.whatsNew31) {
+        app.profile.seen.whatsNew31 = true;
+        app.saveProfile();
+        app.toast('New: Expert and Grandmaster puzzles, up to five moves deep. Find them in Puzzles.', 4600);
       }
     }
     // Take the native launch splash down once the first screen has painted.

@@ -1,6 +1,6 @@
 {
   "name": "stress",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "description": "Stress: the three-minute strategy game. Raid the enemy half, rattle their pieces, crack their nerve.",
   "scripts": {
@@ -14,6 +14,9 @@
     "shots": "node tools/store-shots.js",
     "puzzles:generate": "node tools/puzzles/generate.js",
     "puzzles:curate": "node tools/puzzles/curate.js",
+    "puzzles:deep": "node tools/puzzles/deep.js",
+    "puzzles:build": "node tools/puzzles/build.js",
+    "puzzles:verify": "STRESS_PROVE_ALL=1 node --test tests/puzzles.test.js",
     "sim": "node tools/sim/sim.js"
   },
   "dependencies": {

@@ -1,15 +1,24 @@
 #!/usr/bin/env node
 /*
  * Picks the best generated candidates (tools/puzzles/candidates.json) and writes
- * src/data/puzzles.js: three packs (win in 1, 2, 3) and a separate daily set.
+ * src/data/puzzles.js from scratch: three packs (win in 1, 2, 3) and a separate daily set.
  *
- *   node tools/puzzles/curate.js
+ *   node tools/puzzles/curate.js --fresh
+ *
+ * This replaces the shipped collection, so puzzle ids and the daily rotation change
+ * and players' solved marks stop matching. It is only for starting a new collection;
+ * to change the live one, use tools/puzzles/build.js, which keeps both.
  *
  * Rules for a good puzzle: one winning first move (two allowed in the warm-up),
  * a real finish (crack or Crown capture, not a round-limit decision), far from
  * the round limit, and enough pieces on the board to look like a game.
  */
 'use strict';
+if (!process.argv.includes('--fresh')) {
+  console.error('curate.js rebuilds the whole collection and breaks saved progress and the daily rotation.\n' +
+    'Use tools/puzzles/build.js to update the live collection, or pass --fresh to start over.');
+  process.exit(1);
+}
 const fs = require('fs');
 const path = require('path');
 const R = require('../../src/rules.js');

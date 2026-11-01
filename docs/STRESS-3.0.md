@@ -87,7 +87,7 @@ The full copy is in [`store/listing.md`](../store/listing.md). The key decisions
 Recommendation: **launch free with no ads, then add one optional purchase.**
 
 - **3.0 at launch:** everything free. The goal of launch is ratings, retention data and a shot at editorial featuring. A paywall on day one hurts all three.
-- **3.1, "Stress Plus" (one-time purchase, about $4.99):** new content only, so nothing a player already has goes behind a paywall. It would include new puzzle packs, extra boards, rival costumes and future rivals, plus a supporter badge. Implement it with StoreKit 2 (for example RevenueCat's Capacitor SDK), with Family Sharing and Restore Purchases.
+- **After launch, "Stress Plus" (one-time purchase, about $4.99):** new content only, so nothing a player already has goes behind a paywall. It would include future puzzle packs, extra boards, rival costumes and future rivals, plus a supporter badge. Implement it with StoreKit 2 (for example RevenueCat's Capacitor SDK), with Family Sharing and Restore Purchases.
 - **Never:** interstitial ads, energy systems, paid continues or loot boxes. Any of them would contradict the name and the review score.
 
 A subscription is the wrong fit for a cozy game with finite content. A one-time unlock matches what players expect from premium-feeling puzzle and board games.
@@ -129,7 +129,20 @@ If in-game funnels are needed later (tutorial drop-off, rival win rates), add a 
 1. **Ship it:** sign, upload and run TestFlight. This needs a Mac and the Apple Developer Program. The steps are in [`docs/ios-release.md`](ios-release.md).
 2. **Review prompt** after happy moments (a tiny native plugin call), and a weekly **rest day** for the daily streak.
 3. **Game Center:** leaderboards for stars and longest streak, with achievements mirrored to the 16 in-game ones.
-4. **Stress Plus** (3.1) with the first new puzzle pack and two boards.
+4. **Stress Plus** with the next new puzzle pack and two boards.
 5. **Localization:** Spanish, German, French, Japanese, Brazilian Portuguese and Korean. The text is short and the rival lines are the only creative-writing work.
 6. **An app preview video** (15–30 seconds of a real duel ending in a crack and confetti).
 7. **Android:** the same web app with Capacitor's Android shell. Haptics and offline play already work there.
+
+## Update: 3.1, from the first playtest
+
+The first playtester loved the daily puzzle and wanted more of it the same day, from easy ones that teach the tricks to hard ones you have to think about for a long time. They hadn't found the three puzzle packs at all, because the daily's results screen only offered *Done*. 3.1 responds:
+
+- **More puzzles** is now the main button after the daily, and leads straight to the next unsolved puzzle.
+- **Two hard packs,** Expert (win in 4) and Grandmaster (win in 5), with 50 puzzles each, bring the collection to 250 pack puzzles. They come from a new generator that searches the last moves of decisive computer games, where long forced wins are common. Exactly one first move wins in each.
+- **Ordered by real difficulty.** Every pack runs from easiest to hardest. Difficulty is measured, not guessed: how many computer players from level 2 to 8 miss the first move, whether that move is quiet, how many tempting captures fail, and how many defenses force the full line. A long puzzle isn't automatically a hard one, and some 3-move puzzles out-rank 5-move ones.
+- **Attempts and badges.** Misses and restarts count as tries across sessions ("Solved on try 7"). A gold star marks a puzzle solved without a hint, and two new achievements reward persistence (a solve on the fifth try or later) and a Grandmaster solve without hints.
+- **Instant on any phone.** Deep puzzles ship with their proven solution lines, so the defender's replies and hints at the deep turns need no search on the device. The last couple of turns are checked live, typically in about 10 milliseconds.
+
+The packs stay free; future paid content should be new material, never something already shipped.
+

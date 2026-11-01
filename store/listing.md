@@ -1,4 +1,4 @@
-# App Store listing: Stress 3.0
+# App Store listing: Stress 3.1
 
 Everything App Store Connect asks for, ready to paste. Character limits are Apple's; the counts in brackets are this copy's lengths.
 
@@ -24,9 +24,9 @@ The three URLs are served by GitHub Pages from this repository once 3.0 is on th
 
 ## Promotional text (170)
 
-> New in 3.0: ten rivals with their own personalities, a fresh puzzle every day, and calm new boards to unlock. Learn in a minute, play in three.
+> Ten rivals with their own personalities, a fresh puzzle every day, and 250 more from gentle to fiendish. Learn in a minute, play in three.
 
-[143] This field can be changed at any time without a new build. Use it for events ("New puzzle pack!").
+[138] This field can be changed at any time without a new build. Use it for events ("New puzzle pack!").
 
 ## Keywords (100)
 
@@ -49,7 +49,7 @@ TEN RIVALS
 Climb a ladder of ten opponents, from Pip (just happy to be here) to The Monk (the calmest player alive). Each one plays their own way, from reckless raiders to patient turtles to relentless Crown hunters, and each has three stars to win.
 
 A FRESH PUZZLE EVERY DAY
-Solve the daily puzzle, keep your streak going and share your result without spoilers. 150 more puzzles wait in three packs, from win-in-one warm-ups to win-in-three mastery. Every puzzle is proven by computer to have a forced win.
+Solve the daily puzzle, keep your streak going and share your result without spoilers. 250 more puzzles wait in five packs, from win-in-one warm-ups to Grandmaster puzzles that take five precise moves and real thought. Every puzzle is proven by computer to have a forced win, every pack runs from easiest to hardest, and a gold star marks each one you crack without a hint.
 
 LEARN IN A MINUTE
 A one-minute interactive tutorial teaches you everything by playing. No rulebook required.
@@ -63,7 +63,7 @@ CALM BY DESIGN
 • Gentle sound, ambient music and haptics
 
 LEVEL UP AND COLLECT
-Earn XP and climb from Rattled to Zen Master. Unlock five more boards (Sakura, Matcha, Midnight, Sunset and Gold Leaf) and 16 achievements.
+Earn XP and climb from Rattled to Zen Master. Unlock five more boards (Sakura, Matcha, Midnight, Sunset and Gold Leaf) and 18 achievements.
 
 PLAY A FRIEND
 Pass and play on one device.
@@ -73,14 +73,14 @@ Keep calm. Stress them out.
 
 ## What's New in this version (4000)
 
+App Store Connect shows this only for updates, so the first release doesn't need it. Keep it for the update after launch, and write it from that update's changes. For reference, 3.1 was:
+
 ```text
-Stress 3.0 is our biggest update ever:
-• Meet ten rivals, each with their own style and three stars to win
-• A new puzzle every day, plus 150 puzzles in three packs
-• Learn to play in one minute with the new interactive tutorial
-• All-new characters whose faces react to every raid
-• XP, levels, achievements and six boards to collect
-• Ambient music and haptics
+• Two hard puzzle packs: Expert (win in 4) and Grandmaster (win in 5)
+• Every pack now runs from easiest to hardest
+• Your attempts are counted, so a tough solve shows "Solved on try 7"
+• A gold star for each puzzle solved without a hint
+• More puzzles, right after the daily
 ```
 
 ## Screenshots

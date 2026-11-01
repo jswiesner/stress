@@ -1,770 +1,214 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
-<title>STRESS</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
-:root{
-  --bg:#12121f;--bg2:#1a1a30;--bg3:#222240;
-  --accent:#e94560;--accent2:#c73553;
-  --gold:#f5c842;--gold2:#d4a830;
-  --text:#eaeaea;--text2:#888;--text3:#555;
-  --p1:#42c6ff;--p1g:#2a8ab8;--p1bg:rgba(66,198,255,.12);
-  --p2:#ff6b6b;--p2g:#b84a4a;--p2bg:rgba(255,107,107,.12);
-  --s1:#eab308;--s2:#f97316;--s3:#ef4444;
-  --cell-a:#262647;--cell-b:#1e1e3b;
-}
-html,body{height:100%;overflow:hidden;touch-action:manipulation}
-body{font-family:'SF Pro Display','Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh}
-
-/* ===== SCREENS ===== */
-.screen{display:none;flex-direction:column;align-items:center;width:100%;max-width:480px;padding:12px}
-.screen.show{display:flex}
-
-/* ===== MENU ===== */
-#menu{justify-content:center;gap:14px;text-align:center;height:100dvh}
-#menu h1{font-size:clamp(2.8rem,12vw,4rem);letter-spacing:12px;color:var(--accent);text-shadow:0 0 40px rgba(233,69,96,.3);font-weight:800}
-.tagline{color:var(--text2);font-size:.82rem;max-width:280px;line-height:1.5;margin-bottom:4px}
-.mbtn{background:var(--bg3);border:2px solid var(--accent);color:var(--text);padding:13px 0;font-size:1rem;border-radius:10px;cursor:pointer;width:210px;letter-spacing:3px;font-weight:700;transition:all .12s}
-.mbtn:active{background:var(--accent);transform:scale(.97)}
-.rules-inline{text-align:left;background:var(--bg2);border-radius:10px;padding:14px 16px;max-width:310px;font-size:.78rem;line-height:1.7;color:var(--text2);border:1px solid var(--bg3)}
-.rules-inline b{color:var(--text)}
-.rules-inline .rnum{color:var(--gold);font-weight:700;margin-right:4px}
-.credit{color:var(--text3);font-size:.7rem;letter-spacing:2px;margin-top:8px}
-
-/* ===== GAME ===== */
-#game{height:100dvh;padding:6px;gap:0}
-.topbar{display:flex;justify-content:space-between;align-items:center;width:100%;padding:0 4px;min-height:36px}
-.topbar .back{background:none;border:none;color:var(--text2);font-size:1.5rem;cursor:pointer;padding:6px 10px;border-radius:6px}
-.topbar .back:active{background:var(--bg3)}
-.topbar .center{text-align:center}
-.topbar .title{font-size:.85rem;letter-spacing:5px;color:var(--accent);font-weight:700}
-.topbar .mode{font-size:.6rem;color:var(--text3);letter-spacing:1px}
-.topbar .snd{background:none;border:none;font-size:1.1rem;cursor:pointer;padding:6px 10px;border-radius:6px;color:var(--text2)}
-.topbar .snd:active{background:var(--bg3)}
-
-/* Player bars */
-.pbar{display:flex;justify-content:space-between;align-items:center;width:100%;padding:5px 10px;border-radius:8px;margin:2px 0;background:var(--bg2);border:2px solid transparent;transition:all .2s}
-.pbar.p1.active{border-color:var(--p1);background:var(--p1bg)}
-.pbar.p2.active{border-color:var(--p2);background:var(--p2bg)}
-.pinfo{display:flex;align-items:center;gap:8px}
-.pdot{width:12px;height:12px;border-radius:50%;transition:box-shadow .3s}
-.pbar.active .pdot{box-shadow:0 0 8px currentColor}
-.pname{font-size:.82rem;font-weight:600}
-.pcaps{font-size:.62rem;color:var(--text2)}
-.timer{font-size:1.15rem;font-weight:800;font-variant-numeric:tabular-nums;min-width:36px;text-align:center;letter-spacing:1px}
-.timer.warn{color:var(--s1)}
-.timer.crit{color:var(--s3);animation:blink .5s infinite}
-@keyframes blink{50%{opacity:.3}}
-
-/* Board */
-.bwrap{position:relative;width:100%;aspect-ratio:1;max-height:calc(100dvh - 196px);max-width:calc(100dvh - 196px);margin:3px auto}
-.board{display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(7,1fr);width:100%;height:100%;border-radius:8px;overflow:hidden;border:2px solid var(--bg3)}
-.cell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
-.cell.a{background:var(--cell-a)}.cell.b{background:var(--cell-b)}
-/* Territory shading — clearly visible zones */
-.cell.ezone.a{background:#302048!important}
-.cell.ezone.b{background:#281a40!important}
-.cell.ezone-deep.a{background:#3d1f50!important}
-.cell.ezone-deep.b{background:#351848!important}
-/* Center line — dashed gold line through the middle of the center row */
-.cell.midline{position:relative}
-.cell.midline::before{content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:2px;border-top:2px dashed rgba(245,200,66,.65);z-index:1;pointer-events:none}
-/* Row zone indicators — colored top/bottom borders */
-.cell.ezone-deep{border-top:1px solid rgba(239,68,68,.15)}
-.cell.sel{background:rgba(245,200,66,.2)!important;box-shadow:inset 0 0 0 2px var(--gold)}
-.cell.mv::after{content:'';position:absolute;width:26%;height:26%;border-radius:50%;background:rgba(245,200,66,.5);z-index:4;pointer-events:none}
-.cell.cap{background:rgba(239,68,68,.2)!important}
-.cell.cap::after{content:'';position:absolute;inset:4px;border-radius:50%;border:2px solid rgba(239,68,68,.45);z-index:4;pointer-events:none}
-.cell.last{background:rgba(66,198,255,.08)!important}
-
-/* Pieces — CSS shapes, not unicode */
-.piece{position:relative;width:72%;height:72%;border-radius:50%;z-index:3;transition:transform .1s}
-/* Regular piece */
-.piece.reg{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15)}
-.piece.reg.p1{background:radial-gradient(circle at 38% 35%,#6dd5fa,var(--p1),var(--p1g))}
-.piece.reg.p2{background:radial-gradient(circle at 38% 35%,#ff9a9a,var(--p2),var(--p2g))}
-/* Crown piece */
-.piece.crown{border-radius:0;background:none;display:flex;align-items:center;justify-content:center}
-.piece.crown::before{content:'';position:absolute;width:80%;height:80%;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15)}
-.piece.crown.p1::before{background:radial-gradient(circle at 38% 35%,#6dd5fa,var(--p1),var(--p1g))}
-.piece.crown.p2::before{background:radial-gradient(circle at 38% 35%,#ff9a9a,var(--p2),var(--p2g))}
-.piece.crown::after{content:'★';position:relative;z-index:2;font-size:min(3.5vw,18px);color:var(--gold);text-shadow:0 1px 3px rgba(0,0,0,.6);filter:drop-shadow(0 0 4px rgba(245,200,66,.5))}
-
-/* Stress glow */
-.piece.s1{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 6px 1px rgba(234,179,8,.3)!important}
-.piece.s2{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 8px 2px rgba(249,115,22,.4)!important}
-.piece.s3{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15),0 0 12px 3px rgba(239,68,68,.6)!important;animation:shake .25s infinite}
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
-
-/* Stress badge — large numbered indicator */
-.sbadge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;font-size:11px;font-weight:900;line-height:18px;text-align:center;color:#fff;z-index:6;pointer-events:none;letter-spacing:0;padding:0 3px;border:1.5px solid rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
-.sbadge.s1{background:var(--s1);box-shadow:0 0 6px rgba(234,179,8,.6)}
-.sbadge.s2{background:var(--s2);box-shadow:0 0 8px rgba(249,115,22,.7)}
-.sbadge.s3{background:var(--s3);box-shadow:0 0 10px rgba(239,68,68,.8);animation:badge-pulse 1s infinite}
-@keyframes badge-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
-
-/* Stress gain flash on cells */
-@keyframes stress-flash{0%{background:rgba(239,68,68,.35)}100%{background:transparent}}
-.cell.stress-up{animation:stress-flash .5s ease-out}
-
-/* Zone label overlays */
-.zone-label{position:absolute;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(245,200,66,.5);pointer-events:none;z-index:2;text-transform:uppercase;white-space:nowrap}
-.zone-label.top{top:4px}
-.zone-label.bot{bottom:4px}
-
-/* Status bar */
-.status{width:100%;text-align:center;font-size:.75rem;color:var(--text2);padding:2px;min-height:20px}
-.status.alert{color:var(--accent);font-weight:600}
-
-/* ===== OVERLAYS ===== */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:50;flex-direction:column;align-items:center;justify-content:center;gap:14px}
-.overlay.show{display:flex}
-#gameover h2{font-size:2rem;color:var(--gold);text-shadow:0 0 20px rgba(245,200,66,.3)}
-#gameover p{color:var(--text2);font-size:.9rem}
-#gameover .mbtn{margin-top:8px}
-
-/* ===== ANIMATIONS ===== */
-.anim-piece{position:absolute;z-index:20;pointer-events:none;border-radius:50%;transition:left .14s ease-out,top .14s ease-out}
-.anim-crown{border-radius:0}
-@keyframes shatter-flash{0%{transform:scale(1);opacity:1}25%{transform:scale(1.5);opacity:1;filter:brightness(3)}100%{transform:scale(0);opacity:0}}
-.shatter-anim{animation:shatter-flash .3s ease-out forwards;pointer-events:none;z-index:15}
-@keyframes particle-fly{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(0)}}
-.particle{position:absolute;border-radius:50%;z-index:16;pointer-events:none;animation:particle-fly .4s ease-out forwards}
-</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Stress: a quick chess-flavored duel. Raid the enemy half to pile on Stress, pull your raiders back before they crack, and keep your Crown safe.">
+<title>Stress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&family=Unbounded:wght@600;800&display=swap">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
+<main id="app">
 
-<!-- ===== MENU ===== -->
-<div class="screen show" id="menu">
-  <h1>STRESS</h1>
-  <p class="tagline">A simple game of pressure. Push forward. Rotate before you crack. Capture the Crown.</p>
-  <button class="mbtn" onclick="startGame('ai')">VS COMPUTER</button>
-  <button class="mbtn" onclick="startGame('2p')">TWO PLAYERS</button>
-  <div class="rules-inline">
-    <span class="rnum">1.</span> Move a piece <b>1–2 squares</b> in any direction. The <b>★&nbsp;Crown</b> moves only 1.<br>
-    <span class="rnum">2.</span> <b>Land on</b> an enemy to capture it.<br>
-    <span class="rnum">3.</span> After each turn, <b>unmoved</b> pieces past the <b>center line</b> gain <b>+1 stress</b>.<br>
-    <span class="rnum">4.</span> Moving <b>resets stress</b>. At stress 4, pieces <b>shatter</b>. ★ can't shatter.<br>
-    <span class="rnum">5.</span> <b>Capture the ★</b> to win. 30s per turn.
+  <!-- ============ MENU ============ -->
+  <section class="screen active" id="screen-menu" aria-labelledby="menu-title">
+    <div class="menu">
+      <header class="brand">
+        <h1 class="wordmark" id="menu-title">STRESS <span class="ver">2.0</span></h1>
+        <p class="tagline">Keep calm. Stress them out.</p>
+      </header>
+      <div class="menu-art" id="menu-art"></div>
+      <nav class="menu-actions" aria-label="Main menu">
+        <button class="btn primary" id="btn-continue" hidden><span class="btn-title">Continue game</span><span class="btn-sub" id="continue-sub"></span></button>
+        <button class="btn primary" id="btn-ai"><span class="btn-title">Play the computer</span><span class="btn-sub" id="ai-sub"></span></button>
+        <button class="btn" id="btn-pvp"><span class="btn-title">Two players</span><span class="btn-sub">Pass and play on one device</span></button>
+        <div class="menu-row">
+          <button class="btn ghost" id="btn-rules">How to play</button>
+          <button class="btn ghost" id="btn-settings">Settings</button>
+        </div>
+      </nav>
+      <p class="record" id="record"></p>
+      <p class="credit">Made by Paul</p>
+    </div>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section class="screen" id="screen-game" aria-label="Game">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-back" aria-label="Back to the menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="topbar-title"><span id="mode-label">vs Computer</span><span class="round" id="round-label">Round 1 of 40</span></div>
+      <button class="icon-btn" id="btn-help" aria-label="How to play">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-sound" aria-label="Sound" aria-pressed="true">
+        <svg class="snd-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg class="snd-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" fill="currentColor"/><path d="m16 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+
+    <div class="player" id="panel-1" data-side="red">
+      <div class="who"><span class="swatch"></span><span class="name" id="name-1">Red</span><span class="turn-tag">to move</span></div>
+      <span class="clock" id="clock-1" hidden></span>
+      <div class="meter" id="meter-1" role="meter" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"></div>
+      <div class="stress-num"><b id="stress-1">0</b><span>/10</span></div>
+      <div class="incoming" id="incoming-1"></div>
+    </div>
+
+    <div class="board-area" id="board-area">
+      <div id="board"></div>
+      <div class="banner" id="banner" hidden></div>
+    </div>
+
+    <div class="player" id="panel-0" data-side="blue">
+      <div class="who"><span class="swatch"></span><span class="name" id="name-0">Blue</span><span class="turn-tag">to move</span></div>
+      <span class="clock" id="clock-0" hidden></span>
+      <div class="meter" id="meter-0" role="meter" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"></div>
+      <div class="stress-num"><b id="stress-0">0</b><span>/10</span></div>
+      <div class="incoming" id="incoming-0"></div>
+    </div>
+
+    <div class="status-area">
+      <div class="coach" id="coach" hidden><p id="coach-text"></p><button class="btn small" id="coach-ok">Got it</button></div>
+      <p class="status" id="status" aria-live="polite"></p>
+    </div>
+
+    <footer class="actions">
+      <button class="btn small" id="btn-undo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4.5 11.5 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 11.5h9a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Undo
+      </button>
+      <button class="btn small toggle" id="btn-hints" aria-pressed="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 19.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Hints
+      </button>
+    </footer>
+  </section>
+
+  <!-- ============ HOW TO PLAY ============ -->
+  <section class="screen" id="screen-rules" aria-labelledby="rules-title">
+    <header class="topbar">
+      <button class="icon-btn" id="rules-back" aria-label="Back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="topbar-title"><span id="rules-title">How to play</span></div>
+      <span class="icon-spacer"></span>
+    </header>
+    <div class="scroll">
+      <div class="doc">
+        <p class="lead">Raid your opponent's half to pile on Stress. First to 10 cracks. Or capture their Crown.</p>
+        <ol class="rules">
+          <li><b>Board.</b> 7×7. The three rows nearest you are your half. The middle row is neutral.</li>
+          <li><b>Pieces.</b> Each side has a Crown, 2 Guards, 2 Runners and 2 Jumpers.</li>
+          <li><b>Your turn.</b> Move one piece. Land on an enemy piece to capture it. The first move alternates from game to game.</li>
+          <li class="new"><b>Raid.</b> At the start of your turn, each of your pieces in the enemy half adds 1 to your opponent's Stress.</li>
+          <li class="new"><b>Nerve.</b> A raider can do that 3 times. After its third hit it cracks and leaves the board. Move it back to the middle row or your half and its nerve refills. Your Crown never cracks.</li>
+          <li><b>Win.</b> Your opponent reaches 10 Stress, or you capture their Crown.</li>
+          <li><b>Time limit.</b> If nobody has won after 40 rounds, the player with less Stress wins. If it's tied, play on until someone takes another point. <span class="fine">(If 10 more rounds pass without a hit, the side with more pieces wins.)</span></li>
+        </ol>
+
+        <h2>The pieces</h2>
+        <div class="piece-cards">
+          <div class="piece-card"><div class="diagram-slot" data-diagram="crown"></div><div><h3>Crown</h3><p>One square in any direction. Lose it and you lose the game. It never cracks.</p></div></div>
+          <div class="piece-card"><div class="diagram-slot" data-diagram="guard"></div><div><h3>Guard</h3><p>One or two squares straight. Can't jump. Captures by landing on an enemy (ring).</p></div></div>
+          <div class="piece-card"><div class="diagram-slot" data-diagram="runner"></div><div><h3>Runner</h3><p>One or two squares diagonally. Can't jump, so the Guard here blocks one way.</p></div></div>
+          <div class="piece-card"><div class="diagram-slot" data-diagram="jumper"></div><div><h3>Jumper</h3><p>An L: two squares one way, one to the side. Hops over anything.</p></div></div>
+        </div>
+
+        <h2>Raids and nerve</h2>
+        <div class="raid-card">
+          <div class="diagram-slot wide" data-diagram="raid"></div>
+          <p>Blue's Jumper on e5 is raiding Red's half. If it is still there when Blue's turn starts, Red takes 1 Stress and the Jumper uses up one gold dot of nerve. With one dot left (red), its next hit is its last: pull it back to refill, or let it crack.</p>
+        </div>
+
+        <h2>Hints</h2>
+        <p class="hint-key">When you pick up a piece, its moves are marked. <span class="key risk" aria-hidden="true"></span> <b>Amber</b>: your piece could be captured there. <span class="key danger" aria-hidden="true"></span> <b>Red</b>: the move loses the game or exposes your Crown. Tap your opponent's pieces to see where they can go. You can turn hints off in the game.</p>
+
+        <button class="btn primary wide" id="rules-play">Play</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="screen" id="screen-settings" aria-labelledby="settings-title">
+    <header class="topbar">
+      <button class="icon-btn" id="settings-back" aria-label="Back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="topbar-title"><span id="settings-title">Settings</span></div>
+      <span class="icon-spacer"></span>
+    </header>
+    <div class="scroll">
+      <div class="doc settings">
+        <div class="setting">
+          <div><h3 id="lbl-sound">Sound</h3><p>Soft effects for moves, raids and cracks.</p></div>
+          <button class="switch" id="set-sound" role="switch" aria-checked="true" aria-labelledby="lbl-sound"></button>
+        </div>
+        <div class="setting">
+          <div><h3 id="lbl-hints">Hints</h3><p>Mark risky moves when you pick up a piece.</p></div>
+          <button class="switch" id="set-hints" role="switch" aria-checked="true" aria-labelledby="lbl-hints"></button>
+        </div>
+        <div class="setting">
+          <div><h3 id="lbl-theme">Theme</h3></div>
+          <div class="seg" id="set-theme" role="radiogroup" aria-labelledby="lbl-theme">
+            <button type="button" data-v="auto" role="radio">Auto</button><button type="button" data-v="light" role="radio">Light</button><button type="button" data-v="dark" role="radio">Dark</button>
+          </div>
+        </div>
+        <div class="setting stack">
+          <div><h3 id="lbl-level">Computer</h3><p id="level-help"></p></div>
+          <div class="seg" id="set-levelmode" role="radiogroup" aria-labelledby="lbl-level">
+            <button type="button" data-v="adaptive" role="radio">Adaptive</button><button type="button" data-v="fixed" role="radio">Fixed level</button>
+          </div>
+          <div class="stepper" id="level-stepper">
+            <button type="button" id="level-down" aria-label="Easier">−</button>
+            <output id="level-out" aria-live="polite"></output>
+            <button type="button" id="level-up" aria-label="Harder">+</button>
+          </div>
+        </div>
+        <div class="setting">
+          <div><h3 id="lbl-clock">Two-player clock</h3><p>Time for each player. Run out and you lose.</p></div>
+          <div class="seg" id="set-clock" role="radiogroup" aria-labelledby="lbl-clock">
+            <button type="button" data-v="0" role="radio">Off</button><button type="button" data-v="180" role="radio">3 min</button><button type="button" data-v="300" role="radio">5 min</button>
+          </div>
+        </div>
+        <div class="setting">
+          <div><h3>Tips</h3><p>Show the first-game tips again.</p></div>
+          <button class="btn small" id="reset-tips">Show again</button>
+        </div>
+        <div class="setting">
+          <div><h3>Record</h3><p id="record-detail"></p></div>
+          <button class="btn small" id="reset-stats">Reset</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" id="gameover" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="go-title">
+    <p class="eyebrow" id="go-eyebrow">Game over</p>
+    <h2 id="go-title"></h2>
+    <p class="go-reason" id="go-reason"></p>
+    <dl class="go-stats" id="go-stats"></dl>
+    <p class="go-level" id="go-level"></p>
+    <div class="go-actions">
+      <button class="btn primary" id="go-again">Play again</button>
+      <button class="btn" id="go-undo">Undo last move</button>
+      <button class="btn ghost" id="go-menu">Menu</button>
+    </div>
   </div>
-  <div class="credit">Made by Paul</div>
 </div>
+<div class="toast" id="toast" role="status" hidden></div>
 
-<!-- ===== GAME ===== -->
-<div class="screen" id="game">
-  <div class="topbar">
-    <button class="back" onclick="backToMenu()">←</button>
-    <div class="center"><div class="title">STRESS</div><div class="mode" id="modelbl">VS COMPUTER</div></div>
-    <button class="snd" id="sndbtn" onclick="toggleSound()">🔊</button>
-  </div>
-  <div class="pbar p2" id="bar2">
-    <div class="pinfo"><div class="pdot" style="color:var(--p2);background:var(--p2)"></div><div><div class="pname" id="name2">Red</div><div class="pcaps" id="caps2"></div></div></div>
-    <div class="timer" id="tmr2">--</div>
-  </div>
-  <div class="bwrap" id="bwrap"><div class="board" id="board"></div></div>
-  <div class="status" id="status"></div>
-  <div class="pbar p1" id="bar1">
-    <div class="pinfo"><div class="pdot" style="color:var(--p1);background:var(--p1)"></div><div><div class="pname" id="name1">Blue</div><div class="pcaps" id="caps1"></div></div></div>
-    <div class="timer" id="tmr1">30</div>
-  </div>
-</div>
-
-<!-- ===== GAME OVER ===== -->
-<div class="overlay" id="gameover">
-  <h2 id="wintext"></h2>
-  <p id="winreason"></p>
-  <button class="mbtn" onclick="rematch()">REMATCH</button>
-  <button class="mbtn" onclick="backToMenu()" style="background:none;border-color:var(--text3)">MENU</button>
-</div>
-
-<script>
-// ============================================================
-//  AUDIO
-// ============================================================
-let audioCtx=null,soundOn=true;
-function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume()}
-function snd(type){
-  if(!soundOn||!audioCtx)return;
-  try{
-    const t=audioCtx.currentTime;
-    if(type==='tap'){
-      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-      o.connect(g);g.connect(audioCtx.destination);
-      o.frequency.value=600;o.type='sine';
-      g.gain.setValueAtTime(.06,t);g.gain.exponentialRampToValueAtTime(.001,t+.06);
-      o.start(t);o.stop(t+.06);
-    }else if(type==='move'){
-      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-      o.connect(g);g.connect(audioCtx.destination);
-      o.frequency.setValueAtTime(280,t);o.frequency.linearRampToValueAtTime(360,t+.08);
-      o.type='sine';g.gain.setValueAtTime(.08,t);g.gain.exponentialRampToValueAtTime(.001,t+.1);
-      o.start(t);o.stop(t+.1);
-    }else if(type==='capture'){
-      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-      o.connect(g);g.connect(audioCtx.destination);
-      o.frequency.setValueAtTime(250,t);o.frequency.linearRampToValueAtTime(120,t+.15);
-      o.type='sawtooth';g.gain.setValueAtTime(.1,t);g.gain.exponentialRampToValueAtTime(.001,t+.2);
-      o.start(t);o.stop(t+.2);
-    }else if(type==='shatter'){
-      const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*.25|0,audioCtx.sampleRate);
-      const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.max(0,1-i/d.length);
-      const s=audioCtx.createBufferSource(),g=audioCtx.createGain();
-      s.buffer=buf;s.connect(g);g.connect(audioCtx.destination);
-      g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.001,t+.25);
-      s.start(t);s.stop(t+.25);
-    }else if(type==='tick'){
-      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-      o.connect(g);g.connect(audioCtx.destination);
-      o.frequency.value=900;o.type='sine';
-      g.gain.setValueAtTime(.04,t);g.gain.exponentialRampToValueAtTime(.001,t+.03);
-      o.start(t);o.stop(t+.03);
-    }else if(type==='win'){
-      [0,.12,.24].forEach((d,i)=>{
-        const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-        o.connect(g);g.connect(audioCtx.destination);
-        o.frequency.value=[523,659,784][i];o.type='sine';
-        g.gain.setValueAtTime(.08,t+d);g.gain.exponentialRampToValueAtTime(.001,t+d+.3);
-        o.start(t+d);o.stop(t+d+.3);
-      });
-    }else if(type==='lose'){
-      [0,.15].forEach((d,i)=>{
-        const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-        o.connect(g);g.connect(audioCtx.destination);
-        o.frequency.value=[300,200][i];o.type='sawtooth';
-        g.gain.setValueAtTime(.07,t+d);g.gain.exponentialRampToValueAtTime(.001,t+d+.3);
-        o.start(t+d);o.stop(t+d+.3);
-      });
-    }
-  }catch(e){}
-}
-function toggleSound(){soundOn=!soundOn;document.getElementById('sndbtn').textContent=soundOn?'🔊':'🔇'}
-
-// ============================================================
-//  CONSTANTS & STATE
-// ============================================================
-const SZ=7,STRESS_MAX=4;
-let board,cur,sel,vmoves,mode,over,tmr,tint,lastMv,caps,hist,noCapTurns,animating;
-
-function P(player,crown){return{p:player,c:crown,s:0}}
-function clone(b){return b.map(r=>r.map(c=>c?{...c}:null))}
-
-// ============================================================
-//  BOARD INIT
-// ============================================================
-// Row 0: 7 red pieces (full front line)
-// Row 1: _ _ _ ★ _ _ _ (red crown behind center)
-// Row 5: _ _ _ ★ _ _ _ (blue crown)
-// Row 6: 7 blue pieces
-function initBoard(){
-  const b=Array.from({length:SZ},()=>Array(SZ).fill(null));
-  for(let c=0;c<7;c++)b[0][c]=P(2,false);
-  b[1][3]=P(2,true);
-  for(let c=0;c<7;c++)b[6][c]=P(1,false);
-  b[5][3]=P(1,true);
-  return b;
-}
-
-// ============================================================
-//  MOVE GENERATION
-// ============================================================
-function inB(r,c){return r>=0&&r<SZ&&c>=0&&c<SZ}
-function getMoves(r,c,b){
-  const pc=b[r][c];if(!pc)return[];
-  const mv=[],pl=pc.p,en=pl===1?2:1,range=pc.c?1:2;
-  const dirs=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-  for(const[dr,dc]of dirs){
-    for(let i=1;i<=range;i++){
-      const nr=r+dr*i,nc=c+dc*i;
-      if(!inB(nr,nc))break;
-      const t=b[nr][nc];
-      if(!t){mv.push({r:nr,c:nc,cap:false});continue}
-      if(t.p===en){mv.push({r:nr,c:nc,cap:true})}
-      break; // blocked
-    }
-  }
-  return mv;
-}
-function allMoves(pl,b){
-  const am=[];
-  for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++)
-    if(b[r][c]&&b[r][c].p===pl)for(const m of getMoves(r,c,b))am.push({fr:r,fc:c,...m});
-  return am;
-}
-
-// ============================================================
-//  STRESS SYSTEM
-// ============================================================
-// Enemy territory: your pieces past the center line gain stress.
-// Blue (p1) starts rows 5-6: enemy zone = rows 0-3 (top half + center)
-// Red (p2) starts rows 0-1: enemy zone = rows 3-6 (bottom half + center)
-// Center row (3) is contested — stressful for BOTH sides.
-function inEnemyZone(r,pl){return pl===1?r<=3:r>=3}
-
-// Apply stress to ALL unmoved pieces in enemy territory.
-// movedR/movedC = the piece that just moved (stress reset already).
-// Returns array of shattered positions.
-function applyStress(b,player,movedR,movedC){
-  const stressed=[];
-  for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
-    const pc=b[r][c];
-    if(!pc||pc.c)continue;                // skip null, crown
-    if(pc.p!==player)continue;             // only stress the current player's pieces
-    if(r===movedR&&c===movedC)continue;    // skip the piece that moved
-    if(inEnemyZone(r,pc.p)){
-      const prev=pc.s;
-      pc.s=Math.min(pc.s+1,STRESS_MAX);
-      if(pc.s>prev)stressed.push({r,c});
-    }
-  }
-  // Shatter + chain
-  const shattered=[];
-  let changed=true;
-  while(changed){
-    changed=false;
-    for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
-      const pc=b[r][c];
-      if(pc&&!pc.c&&pc.s>=STRESS_MAX){
-        shattered.push({r,c,p:pc.p});
-        b[r][c]=null;
-        changed=true;
-        // Chain: adjacent non-crown pieces gain +1 stress
-        for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
-          if(!dr&&!dc)continue;
-          const nr=r+dr,nc=c+dc;
-          if(inB(nr,nc)&&b[nr][nc]&&!b[nr][nc].c){
-            b[nr][nc].s=Math.min(b[nr][nc].s+1,STRESS_MAX);
-          }
-        }
-      }
-    }
-  }
-  return{shattered,stressed};
-}
-
-// ============================================================
-//  ANIMATION HELPERS
-// ============================================================
-function cellPos(r,c){
-  const bEl=document.getElementById('board');
-  const rect=bEl.getBoundingClientRect();
-  const cw=rect.width/SZ,ch=rect.height/SZ;
-  return{x:rect.left+c*cw+cw/2,y:rect.top+r*ch+ch/2,w:cw,h:ch};
-}
-
-function animateMove(fr,fc,tr,tc,pc,cb){
-  animating=true;
-  const from=cellPos(fr,fc),to=cellPos(tr,tc);
-  const sz=from.w*.65;
-  const el=document.createElement('div');
-  el.className='anim-piece';
-  const isP1=pc.p===1;
-  if(pc.c){
-    el.style.cssText=`width:${sz}px;height:${sz}px;left:${from.x}px;top:${from.y}px;transform:translate(-50%,-50%);background:none;display:flex;align-items:center;justify-content:center;border-radius:0`;
-    const inner=document.createElement('div');
-    inner.style.cssText=`width:80%;height:80%;border-radius:50%;background:radial-gradient(circle at 38% 35%,${isP1?'#6dd5fa,var(--p1),var(--p1g)':'#ff9a9a,var(--p2),var(--p2g)'});box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15)`;
-    const star=document.createElement('span');
-    star.textContent='★';star.style.cssText=`position:absolute;z-index:2;font-size:${sz*.35}px;color:var(--gold);text-shadow:0 1px 3px rgba(0,0,0,.6);filter:drop-shadow(0 0 4px rgba(245,200,66,.5))`;
-    el.appendChild(inner);el.appendChild(star);
-  }else{
-    el.style.cssText=`width:${sz}px;height:${sz}px;border-radius:50%;left:${from.x}px;top:${from.y}px;transform:translate(-50%,-50%);background:radial-gradient(circle at 38% 35%,${isP1?'#6dd5fa,var(--p1),var(--p1g)':'#ff9a9a,var(--p2),var(--p2g)'});box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 2px 4px rgba(255,255,255,.15)`;
-  }
-  document.body.appendChild(el);
-  // Hide the source piece during animation
-  renderCell(fr,fc,true);
-  requestAnimationFrame(()=>{el.style.left=to.x+'px';el.style.top=to.y+'px'});
-  setTimeout(()=>{el.remove();animating=false;cb()},150);
-}
-
-function animateShatter(r,c,playerN){
-  const pos=cellPos(r,c);
-  const color=playerN===1?'var(--p1)':'var(--p2)';
-  for(let i=0;i<8;i++){
-    const ang=(i/8)*Math.PI*2;
-    const dist=15+Math.random()*15;
-    const dx=Math.cos(ang)*dist,dy=Math.sin(ang)*dist;
-    const p=document.createElement('div');
-    p.className='particle';
-    p.style.cssText=`left:${pos.x}px;top:${pos.y}px;width:5px;height:5px;background:${color};--dx:${dx}px;--dy:${dy}px`;
-    document.body.appendChild(p);
-    setTimeout(()=>p.remove(),420);
-  }
-  snd('shatter');
-  // Haptic
-  if(navigator.vibrate)navigator.vibrate(30);
-}
-
-// ============================================================
-//  MOVE EXECUTION
-// ============================================================
-function execMove(fr,fc,tr,tc,skipAnim){
-  const pc=board[fr][fc];
-  const captured=board[tr][tc];
-  const isCap=!!captured;
-  const isCrownCap=captured&&captured.c;
-
-  if(skipAnim){
-    finishExec(fr,fc,tr,tc,pc,captured,isCap,isCrownCap);
-    return;
-  }
-  // Animate
-  snd(isCap?'capture':'move');
-  if(navigator.vibrate)navigator.vibrate(isCap?[15,10,15]:10);
-  // Hide captured piece immediately
-  if(captured){board[tr][tc]=null;renderCell(tr,tc)}
-  animateMove(fr,fc,tr,tc,pc,()=>{
-    finishExec(fr,fc,tr,tc,pc,captured,isCap,isCrownCap);
-  });
-}
-
-function finishExec(fr,fc,tr,tc,pc,captured,isCap,isCrownCap){
-  // Update board
-  board[tr][tc]=pc;board[fr][fc]=null;
-  pc.s=0; // moving resets stress
-
-  if(isCap){
-    caps[pc.p]++;
-    noCapTurns=0;
-    if(isCrownCap){
-      lastMv={fr,fc,tr,tc};
-      render();
-      endGame(pc.p,'Crown captured!');
-      return;
-    }
-  }else{
-    noCapTurns++;
-  }
-  lastMv={fr,fc,tr,tc};
-  hist.push({fr,fc,tr,tc,p:pc.p});
-
-  // Apply stress to current player's unmoved pieces
-  const{shattered,stressed}=applyStress(board,cur,tr,tc);
-  // Flash cells that gained stress
-  for(const st of stressed){
-    const idx=st.r*SZ+st.c;
-    const cell=document.getElementById('board').children[idx];
-    if(cell){cell.classList.add('stress-up');setTimeout(()=>cell.classList.remove('stress-up'),500)}
-  }
-  // Animate shatters
-  for(const sh of shattered){
-    animateShatter(sh.r,sh.c,sh.p);
-    caps[sh.p===1?2:1]++;
-  }
-
-  // Check crowns
-  let c1=false,c2=false;
-  for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
-    if(board[r][c]&&board[r][c].c){
-      if(board[r][c].p===1)c1=true;if(board[r][c].p===2)c2=true;
-    }
-  }
-  if(!c1){render();endGame(2,'Crown lost!');return}
-  if(!c2){render();endGame(1,'Crown lost!');return}
-
-  // Draw: only crowns remain
-  let nonCrown=false;
-  for(let r=0;r<SZ&&!nonCrown;r++)for(let c=0;c<SZ&&!nonCrown;c++)
-    if(board[r][c]&&!board[r][c].c)nonCrown=true;
-  if(!nonCrown){render();endGame(0,'Draw — only Crowns remain');return}
-
-  // Draw check
-  if(noCapTurns>=60){render();endGame(0,'Draw — 60 turns without capture');return}
-
-  // No moves check for opponent
-  const opp=cur===1?2:1;
-  const oppMvs=allMoves(opp,board);
-  if(!oppMvs.length){render();endGame(cur,opp===1?'Blue':'Red'+' has no moves!');return}
-
-  // Switch turn
-  cur=opp;
-  sel=null;vmoves=[];
-  render();
-  resetTimer();
-
-  if(mode==='ai'&&cur===2&&!over)setTimeout(aiMove,300+Math.random()*300);
-}
-
-// ============================================================
-//  AI — MINIMAX DEPTH 2
-// ============================================================
-function evaluate(b){
-  let sc=0;
-  for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
-    const pc=b[r][c];if(!pc)continue;
-    const sign=pc.p===2?1:-1;
-    // Material
-    sc+=sign*(pc.c?800:100);
-    // Stress penalty — high stress means piece is about to shatter
-    if(!pc.c)sc-=sign*pc.s*35;
-    // Advancement: reward pushing into enemy territory (but stress is the cost)
-    if(pc.p===2)sc+=r*3*sign;
-    if(pc.p===1)sc+=(SZ-1-r)*3*(-sign);
-    // Crown safety: adjacency to friends
-    if(pc.c){
-      let friends=0;
-      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
-        if(!dr&&!dc)continue;
-        if(inB(r+dr,c+dc)&&b[r+dr][c+dc]&&b[r+dr][c+dc].p===pc.p)friends++;
-      }
-      sc+=sign*friends*12;
-    }
-    // Penalize pieces deep in enemy territory with high stress (about to shatter)
-    if(!pc.c&&inEnemyZone(r,pc.p)&&pc.s>=3)sc-=sign*40;
-  }
-  // Noise: makes AI occasionally misjudge positions (beatable but competent)
-  sc+=Math.random()*50-25;
-  return sc;
-}
-
-function simMove(b,fr,fc,tr,tc,player){
-  const nb=clone(b);
-  const pc=nb[fr][fc];
-  const captured=nb[tr][tc];
-  nb[tr][tc]=pc;nb[fr][fc]=null;
-  pc.s=0;
-  // Apply stress
-  applyStress(nb,player,tr,tc);
-  return{board:nb,capCrown:captured&&captured.c};
-}
-
-function minimax(b,depth,alpha,beta,maximizing){
-  if(depth===0)return{score:evaluate(b)};
-  const player=maximizing?2:1;
-  const mvs=allMoves(player,b);
-  if(!mvs.length)return{score:maximizing?-50000:50000};
-
-  // Move ordering: captures first, then by piece stress
-  mvs.sort((a,z)=>{
-    const ac=b[a.r]&&b[a.r][a.c]?1:0,zc=b[z.r]&&b[z.r][z.c]?1:0;
-    if(ac!==zc)return zc-ac;
-    const as=b[a.fr][a.fc].s,zs=b[z.fr][z.fc].s;
-    return zs-as;
-  });
-
-  let bestMove=mvs[0];
-  if(maximizing){
-    let mx=-Infinity;
-    for(const m of mvs){
-      const sim=simMove(b,m.fr,m.fc,m.r,m.c,player);
-      if(sim.capCrown)return{score:100000,move:m};
-      const res=minimax(sim.board,depth-1,alpha,beta,false);
-      if(res.score>mx){mx=res.score;bestMove=m}
-      alpha=Math.max(alpha,mx);
-      if(beta<=alpha)break;
-    }
-    return{score:mx,move:bestMove};
-  }else{
-    let mn=Infinity;
-    for(const m of mvs){
-      const sim=simMove(b,m.fr,m.fc,m.r,m.c,player);
-      if(sim.capCrown)return{score:-100000,move:m};
-      const res=minimax(sim.board,depth-1,alpha,beta,true);
-      if(res.score<mn){mn=res.score;bestMove=m}
-      beta=Math.min(beta,mn);
-      if(beta<=alpha)break;
-    }
-    return{score:mn,move:bestMove};
-  }
-}
-
-function aiMove(){
-  if(over||cur!==2)return;
-  const mvs=allMoves(2,board);
-  if(!mvs.length){endGame(1,'Red has no moves!');return}
-
-  // Always capture crown if possible (no noise for this)
-  const crownCap=mvs.find(m=>board[m.r]&&board[m.r][m.c]&&board[m.r][m.c].c);
-  if(crownCap){execMove(crownCap.fr,crownCap.fc,crownCap.r,crownCap.c);return}
-
-  // Minimax with noise baked into evaluation
-  const result=minimax(board,2,-Infinity,Infinity,true);
-  if(result.move)execMove(result.move.fr,result.move.fc,result.move.r,result.move.c);
-}
-
-// ============================================================
-//  TIMER
-// ============================================================
-function resetTimer(){
-  tmr=30;clearInterval(tint);
-  if(over)return;
-  // Don't run timer for AI
-  if(mode==='ai'&&cur===2){updateTimerUI();return}
-  tint=setInterval(()=>{
-    tmr--;
-    if(tmr<=10&&tmr>0)snd('tick');
-    updateTimerUI();
-    if(tmr<=0){clearInterval(tint);onTimeout()}
-  },1000);
-  updateTimerUI();
-}
-function updateTimerUI(){
-  const e1=document.getElementById('tmr1'),e2=document.getElementById('tmr2');
-  if(mode==='ai'&&cur===2){
-    e2.textContent='···';e2.className='timer';
-    e1.textContent='--';e1.className='timer';
-    return;
-  }
-  const a=cur===1?e1:e2,b=cur===1?e2:e1;
-  a.textContent=tmr;b.textContent='--';
-  a.className='timer'+(tmr<=5?' crit':tmr<=10?' warn':'');
-  b.className='timer';
-}
-function onTimeout(){
-  if(over||animating)return;
-  const mvs=allMoves(cur,board);
-  if(mvs.length){
-    setStatus("Time's up! Panic move!",true);
-    const m=mvs[Math.floor(Math.random()*mvs.length)];
-    setTimeout(()=>execMove(m.fr,m.fc,m.r,m.c),200);
-  }else endGame(cur===1?2:1,'No moves!');
-}
-
-// ============================================================
-//  GAME FLOW
-// ============================================================
-function startGame(m){
-  initAudio();
-  mode=m;board=initBoard();cur=1;sel=null;vmoves=[];over=false;lastMv=null;
-  caps={1:0,2:0};hist=[];noCapTurns=0;animating=false;
-  document.getElementById('menu').classList.remove('show');
-  document.getElementById('game').classList.add('show');
-  document.getElementById('gameover').classList.remove('show');
-  document.getElementById('modelbl').textContent=m==='ai'?'VS COMPUTER':'TWO PLAYERS';
-  document.getElementById('name2').textContent=m==='ai'?'Computer':'Red';
-  document.getElementById('name1').textContent=m==='ai'?'You':'Blue';
-  buildBoard();render();resetTimer();
-}
-function endGame(winner,reason){
-  over=true;clearInterval(tint);
-  if(winner===0){
-    document.getElementById('wintext').textContent='Draw!';
-  }else{
-    const wn=winner===1?(mode==='ai'?'You Win':'Blue Wins'):(mode==='ai'?'Computer Wins':'Red Wins');
-    document.getElementById('wintext').textContent=wn+'!';
-    if(mode==='ai')snd(winner===1?'win':'lose');else snd('win');
-  }
-  document.getElementById('winreason').textContent=reason;
-  setTimeout(()=>document.getElementById('gameover').classList.add('show'),350);
-}
-function rematch(){document.getElementById('gameover').classList.remove('show');startGame(mode)}
-function backToMenu(){
-  over=true;clearInterval(tint);
-  document.getElementById('game').classList.remove('show');
-  document.getElementById('gameover').classList.remove('show');
-  document.getElementById('menu').classList.add('show');
-}
-
-// ============================================================
-//  RENDERING
-// ============================================================
-function buildBoard(){
-  const el=document.getElementById('board');el.innerHTML='';
-  for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
-    const d=document.createElement('div');
-    d.className='cell '+((r+c)%2===0?'a':'b');
-    d.dataset.r=r;d.dataset.c=c;
-    d.addEventListener('click',()=>onClick(r,c));
-    el.appendChild(d);
-  }
-  // Add zone labels to board wrapper
-  const wrap=document.getElementById('bwrap');
-  wrap.querySelectorAll('.zone-label').forEach(e=>e.remove());
-  const topLbl=document.createElement('div');
-  topLbl.className='zone-label top';topLbl.textContent='⚡ STRESS ZONE';
-  const botLbl=document.createElement('div');
-  botLbl.className='zone-label bot';botLbl.textContent='⚡ STRESS ZONE';
-  wrap.appendChild(topLbl);wrap.appendChild(botLbl);
-}
-
-function renderCell(r,c,hide){
-  const idx=r*SZ+c;
-  const cell=document.getElementById('board').children[idx];
-  if(!cell)return;
-  // Compute class
-  let cls='cell '+((r+c)%2===0?'a':'b');
-  // Territory zones: rows 0-2 = red home, row 3 = neutral center, rows 4-6 = blue home
-  if(r<=2)cls+=' ezone ezone-deep';      // deep red territory
-  else if(r===3)cls+=' ezone midline';   // contested center with line through middle
-  else if(r>=4)cls+=' ezone';            // blue home (red's enemy zone)
-  if(lastMv&&((lastMv.fr===r&&lastMv.fc===c)||(lastMv.tr===r&&lastMv.tc===c)))cls+=' last';
-  if(sel&&sel.r===r&&sel.c===c)cls+=' sel';
-  const vm=vmoves.find(m=>m.r===r&&m.c===c);
-  if(vm)cls+=vm.cap?' cap':' mv';
-  cell.className=cls;
-
-  if(hide){cell.innerHTML='';return}
-  const pc=board[r][c];
-  if(pc){
-    const sLvl=!pc.c&&pc.s>=3?'s3':!pc.c&&pc.s===2?'s2':!pc.c&&pc.s===1?'s1':'';
-    const pCls='piece '+(pc.c?'crown':'reg')+' p'+pc.p+(sLvl?' '+sLvl:'');
-    let h='<div class="'+pCls+'"></div>';
-    // Bold numbered stress badge
-    if(pc.s>0&&!pc.c){
-      h+='<div class="sbadge s'+Math.min(pc.s,3)+'">'+pc.s+'</div>';
-    }
-    cell.innerHTML=h;
-  }else cell.innerHTML='';
-}
-
-function render(){
-  for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++)renderCell(r,c);
-
-  // Player bars
-  document.getElementById('bar1').className='pbar p1'+(cur===1?' active':'');
-  document.getElementById('bar2').className='pbar p2'+(cur===2?' active':'');
-
-  // Captures
-  document.getElementById('caps1').textContent=caps[1]?'Captured: '+caps[1]:'';
-  document.getElementById('caps2').textContent=caps[2]?'Captured: '+caps[2]:'';
-
-  // Status — show stress info prominently
-  if(!over){
-    const nm=cur===1?(mode==='ai'?'Your':"Blue's"):(mode==='ai'?"Computer's":"Red's");
-    let panic=0,stressed=0;
-    for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
-      const pc=board[r][c];
-      if(pc&&pc.p===cur&&!pc.c){
-        if(pc.s>=3)panic++;
-        else if(pc.s>=1)stressed++;
-      }
-    }
-    if(panic>0)setStatus('⚠ '+panic+' piece'+(panic>1?'s':'')+' at stress 3 — will SHATTER next turn!',true);
-    else if(stressed>0)setStatus(nm+' turn — '+stressed+' piece'+(stressed>1?'s':'')+' gaining stress');
-    else setStatus(nm+' turn · Turn '+(hist.length+1));
-  }
-}
-
-function setStatus(t,alert){
-  const e=document.getElementById('status');e.textContent=t;
-  e.className='status'+(alert?' alert':'');
-}
-
-// ============================================================
-//  INPUT
-// ============================================================
-function onClick(r,c){
-  if(over||animating)return;
-  if(mode==='ai'&&cur===2)return;
-  initAudio();
-  const pc=board[r][c];
-  // Click on valid move
-  if(sel&&vmoves.some(m=>m.r===r&&m.c===c)){
-    execMove(sel.r,sel.c,r,c);
-    sel=null;vmoves=[];
-    return;
-  }
-  // Select own piece
-  if(pc&&pc.p===cur){
-    sel={r,c};vmoves=getMoves(r,c,board);
-    snd('tap');
-    render();
-    return;
-  }
-  // Deselect
-  sel=null;vmoves=[];render();
-}
-</script>
+<script src="src/rules.js"></script>
+<script src="src/ai.js"></script>
+<script src="src/storage.js"></script>
+<script src="src/sound.js"></script>
+<script src="src/board-view.js"></script>
+<script src="src/app.js"></script>
 </body>
 </html>

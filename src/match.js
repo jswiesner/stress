@@ -43,7 +43,7 @@
   function runLocal(req) {
     setTimeout(() => {
       const st = R.deserialize(req.msg.state), S = root.StressSolver;
-      if (req.msg.kind === 'defend') req.cb(S.bestDefense(st, req.msg.movesLeft, 3e6));
+      if (req.msg.kind === 'defend') req.cb(S.bestDefense(st, req.msg.movesLeft, req.msg.nodes || 3e6));
       else if (req.msg.kind === 'hint') req.cb({ moves: S.winningMoves(st, req.msg.movesLeft, 3e6) });
       else req.cb(AI.chooseMove(st, { level: req.msg.level, style: req.msg.style, budgetMs: req.msg.budget }));
     }, 30);
@@ -265,21 +265,52 @@
       if (known) {
         const alt = known[R.moveName(move)];
         if (alt) { M.defense = parseMove(alt); return beginTurn(); }
-        if (move !== main) return puzzleFail();
-      } else if (move !== main && (M.puzzle.duals || [])[step] === 1) return puzzleFail();
+        if (move !== main) return refute();
+      } else if (move !== main && (M.puzzle.duals || [])[step] === 1) return refute();
     }
     phase = 'thinking';
     render();
     const t = ++ticket, state = M.state;
     ask({ kind: 'defend', state, movesLeft: M.movesLeft - 1 }, res => {
       if (t !== ticket || !M || M.state !== state) return;
-      if (!res || res.escapes) return puzzleFail();
+      if (!res || res.escapes) return puzzleFail(res && res.escapes ? res.move : null);
       M.defense = res.move;
       beginTurn();
     });
   }
 
-  function puzzleFail() {
+  // A move off a stored line that can't win: find Red's answer to show (a short search,
+  // so a hard one just fails without it), then fail.
+  function refute() {
+    phase = 'thinking';
+    render();
+    const t = ++ticket, state = M.state;
+    ask({ kind: 'defend', state, movesLeft: M.movesLeft - 1, nodes: 1.5e6 }, res => {
+      if (t !== ticket || !M || M.state !== state) return;
+      puzzleFail(res && res.escapes ? res.move : null);
+    });
+  }
+
+  // Red plays its answer on the board first, so a miss explains itself: a tempting move
+  // that loses to one quiet reply would otherwise look like the game got it wrong.
+  async function puzzleFail(answer) {
+    let why = 'That move lets Red slip away.';
+    if (typeof answer === 'number' && R.isLegal(M.state, answer)) {
+      const st = M.state, t = ticket, from = R.moveFrom(answer), to = R.moveTo(answer);
+      const piece = R.PIECE_NAMES[st.type[from]], victim = st.owner[to] >= 0 ? R.PIECE_NAMES[st.type[to]] : null;
+      why = 'Red’s ' + piece + (victim ? ' takes your ' + victim + ' on ' + R.squareName(to) : ' moves to ' + R.squareName(to)) + ', and the win slips away.';
+      phase = 'animating';
+      selected = preview = -1;
+      hint = null;
+      const result = R.apply(st, answer);
+      render();
+      await view.animate(result.events, hooks);
+      if (t !== ticket || !M || M.state !== st) return;
+      M.state = result.state;
+      render();
+      await new Promise(r => setTimeout(r, reduced() ? 150 : 650));
+      if (t !== ticket || !M || M.state !== result.state) return;
+    }
     phase = 'idle';
     if (!M.logged && app.onPuzzleTry) app.onPuzzleTry(M.puzzle.id);
     M.logged = true;
@@ -288,7 +319,7 @@
     render();
     app.sheet(
       '<div class="prematch"><div class="big-portrait">' + Art.piece(R.CROWN, R.RED, 'happy') + '</div>' +
-      '<h2>Not quite</h2><p class="muted">That move lets Red slip away. Try again from the start?</p>' +
+      '<h2>Not quite</h2><p class="muted" id="miss-why">' + why + ' Try again from the start?</p>' +
       '<div class="sheet-actions"><button class="btn primary wide" data-act="retry">' + Icons.reset + 'Try again</button>' +
       '<button class="btn wide" data-act="hint">' + Icons.hint + 'Try again with a hint</button>' +
       '<button class="btn ghost wide" data-act="quit">Back to puzzles</button></div></div>',

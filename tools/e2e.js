@@ -214,7 +214,7 @@ async function solveWithHints(page) {
       const tw = Date.now();
       await randomMove(page, 'Blue');
       if ((await waitTurn(page, '#board')) === 'sheet') {
-        ok(Date.now() - tw < 4000, 'a wrong first move on a deep puzzle is caught at once (' + (Date.now() - tw) + ' ms)');
+        ok(Date.now() - tw < 8000, 'a wrong first move on a deep puzzle is caught quickly, with Red\'s answer shown (' + (Date.now() - tw) + ' ms)');
         await page.click('[data-act="retry"]');
         ok(/Try 2/.test(await page.textContent('#g-sub')), 'the retry is try 2');
       } else {
@@ -225,6 +225,16 @@ async function solveWithHints(page) {
       ok(await solveWithHints(page), 'the Expert puzzle is solved by following its hints');
       ok(Date.now() - t0 < 30000, 'deep puzzles answer quickly (' + (Date.now() - t0) + ' ms)');
       await page.click('[data-res="puzzles"]');
+      // A tempting miss shows Red's answer: in Mastery m25, taking the Jumper on c5 looks
+      // like a two-move win, but Red's Runner recaptures.
+      await page.evaluate(() => StressApp.startPuzzleById('m25'));
+      await waitTurn(page, '#board');
+      await page.click('#board .cell[data-sq="22"]');
+      await page.click('#board .cell[data-sq="16"]');
+      ok((await waitTurn(page, '#board')) === 'sheet', 'the tempting miss in m25 fails');
+      ok(/Runner takes your Runner on c5/.test(await page.textContent('#miss-why')), 'the miss names Red\'s answer');
+      ok(await page.evaluate(() => StressMatch.current.state.owner[StressRules.squareIndex('c5')] === StressRules.RED), 'Red\'s answer is on the board');
+      await page.click('[data-act="quit"]');
       await page.click('[data-back]:visible');
 
       // 5. quick match: save, quit, resume, finish

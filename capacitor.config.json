@@ -1,0 +1,15 @@
+{
+  "appId": "com.jswiesner.stress",
+  "appName": "Stress",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "never",
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "showSpinner": false
+    }
+  }
+}

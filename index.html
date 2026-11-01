@@ -3,212 +3,160 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Stress: a quick chess-flavored duel. Raid the enemy half to pile on Stress, pull your raiders back before they crack, and keep your Crown safe.">
+<meta name="description" content="Stress: the 3-minute strategy game. Raid the enemy half, rattle their pieces, crack their nerve. Ten rivals, daily puzzles, no ads.">
+<meta name="theme-color" content="#D6E8E1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08110E" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stress">
 <title>Stress</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&family=Unbounded:wght@600;800&display=swap">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/figtree-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/unbounded-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="defs" aria-hidden="true"></div>
 <main id="app">
 
-  <!-- ============ MENU ============ -->
-  <section class="screen active" id="screen-menu" aria-labelledby="menu-title">
-    <div class="menu">
-      <header class="brand">
-        <h1 class="wordmark" id="menu-title">STRESS <span class="ver">2.0</span></h1>
-        <p class="tagline">Keep calm. Stress them out.</p>
-      </header>
-      <div class="menu-art" id="menu-art"></div>
-      <nav class="menu-actions" aria-label="Main menu">
-        <button class="btn primary" id="btn-continue" hidden><span class="btn-title">Continue game</span><span class="btn-sub" id="continue-sub"></span></button>
-        <button class="btn primary" id="btn-ai"><span class="btn-title">Play the computer</span><span class="btn-sub" id="ai-sub"></span></button>
-        <button class="btn" id="btn-pvp"><span class="btn-title">Two players</span><span class="btn-sub">Pass and play on one device</span></button>
-        <div class="menu-row">
-          <button class="btn ghost" id="btn-rules">How to play</button>
-          <button class="btn ghost" id="btn-settings">Settings</button>
-        </div>
-      </nav>
-      <p class="record" id="record"></p>
-      <p class="credit">Made by Paul</p>
+  <!-- ===== HOME ===== -->
+  <section class="screen" id="screen-home" aria-label="Home">
+    <div class="home-top">
+      <button class="profile-chip" id="h-profile" aria-label="Your profile and collection">
+        <span class="avatar" id="h-avatar"></span>
+        <span class="who"><span class="lvl" id="h-level">Level 1 · Rattled</span><span class="xpbar"><i id="h-xp"></i></span></span>
+      </button>
+      <button class="icon-btn" id="h-settings" aria-label="Settings"></button>
     </div>
+    <div class="home-hero">
+      <h1 class="wordmark">STRESS</h1>
+      <p class="tagline">Keep calm. Stress them out.</p>
+      <div class="parade" id="h-parade" aria-hidden="true"></div>
+    </div>
+    <button class="play-card" id="h-play"></button>
+    <button class="daily-card" id="h-daily"></button>
+    <div class="mode-grid">
+      <button class="mode-tile" id="h-puzzles"><span class="ic" data-icon="puzzle"></span><span><b>Puzzles</b><span id="h-puzzles-sub"></span></span></button>
+      <button class="mode-tile" id="h-rivals"><span class="ic" data-icon="ladder"></span><span><b>Rivals</b><span id="h-rivals-sub"></span></span></button>
+      <button class="mode-tile" id="h-quick"><span class="ic" data-icon="swords"></span><span><b>Quick match</b><span id="h-quick-sub"></span></span></button>
+      <button class="mode-tile" id="h-pvp"><span class="ic" data-icon="people"></span><span><b>Two players</b><span>One device</span></span></button>
+    </div>
+    <p class="credit">Made by Paul</p>
   </section>
 
-  <!-- ============ GAME ============ -->
-  <section class="screen" id="screen-game" aria-label="Game">
-    <header class="topbar">
-      <button class="icon-btn" id="btn-back" aria-label="Back to the menu">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="topbar-title"><span id="mode-label">vs Computer</span><span class="round" id="round-label">Round 1 of 40</span></div>
-      <button class="icon-btn" id="btn-help" aria-label="How to play">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg>
-      </button>
-      <button class="icon-btn" id="btn-sound" aria-label="Sound" aria-pressed="true">
-        <svg class="snd-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <svg class="snd-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" fill="currentColor"/><path d="m16 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-    </header>
-
-    <div class="player" id="panel-1" data-side="red">
-      <div class="who"><span class="swatch"></span><span class="name" id="name-1">Red</span><span class="turn-tag">to move</span></div>
-      <span class="clock" id="clock-1" hidden></span>
-      <div class="meter" id="meter-1" role="meter" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"></div>
-      <div class="stress-num"><b id="stress-1">0</b><span>/10</span></div>
-      <div class="incoming" id="incoming-1"></div>
-    </div>
-
-    <div class="board-area" id="board-area">
-      <div id="board"></div>
-      <div class="banner" id="banner" hidden></div>
-    </div>
-
-    <div class="player" id="panel-0" data-side="blue">
-      <div class="who"><span class="swatch"></span><span class="name" id="name-0">Blue</span><span class="turn-tag">to move</span></div>
-      <span class="clock" id="clock-0" hidden></span>
-      <div class="meter" id="meter-0" role="meter" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"></div>
-      <div class="stress-num"><b id="stress-0">0</b><span>/10</span></div>
-      <div class="incoming" id="incoming-0"></div>
-    </div>
-
-    <div class="status-area">
-      <div class="coach" id="coach" hidden><p id="coach-text"></p><button class="btn small" id="coach-ok">Got it</button></div>
-      <p class="status" id="status" aria-live="polite"></p>
-    </div>
-
-    <footer class="actions">
-      <button class="btn small" id="btn-undo">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4.5 11.5 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 11.5h9a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Undo
-      </button>
-      <button class="btn small toggle" id="btn-hints" aria-pressed="true">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 19.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Hints
-      </button>
-    </footer>
+  <!-- ===== RIVALS ===== -->
+  <section class="screen" id="screen-rivals" aria-labelledby="rivals-title">
+    <div class="topbar"><button class="icon-btn" data-back aria-label="Back"></button><h2 id="rivals-title">Rivals</h2><span class="spacer"></span></div>
+    <div class="scroll"><div class="ladder-sum" id="rivals-sum"></div><div class="ladder" id="rivals-list"></div></div>
   </section>
 
-  <!-- ============ HOW TO PLAY ============ -->
-  <section class="screen" id="screen-rules" aria-labelledby="rules-title">
-    <header class="topbar">
-      <button class="icon-btn" id="rules-back" aria-label="Back">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="topbar-title"><span id="rules-title">How to play</span></div>
-      <span class="icon-spacer"></span>
-    </header>
+  <!-- ===== PUZZLES ===== -->
+  <section class="screen" id="screen-puzzles" aria-labelledby="puzzles-title">
+    <div class="topbar"><button class="icon-btn" data-back aria-label="Back"></button><h2 id="puzzles-title">Puzzles</h2><span class="spacer"></span></div>
+    <div class="scroll"><div id="puzzles-body"></div></div>
+  </section>
+
+  <!-- ===== COLLECTION ===== -->
+  <section class="screen" id="screen-collection" aria-labelledby="collection-title">
+    <div class="topbar"><button class="icon-btn" data-back aria-label="Back"></button><h2 id="collection-title">Collection</h2><span class="spacer"></span></div>
     <div class="scroll">
-      <div class="doc">
-        <p class="lead">Raid your opponent's half to pile on Stress. First to 10 cracks. Or capture their Crown.</p>
-        <ol class="rules">
-          <li><b>Board.</b> 7×7. The three rows nearest you are your half. The middle row is neutral.</li>
-          <li><b>Pieces.</b> Each side has a Crown, 2 Guards, 2 Runners and 2 Jumpers.</li>
-          <li><b>Your turn.</b> Move one piece. Land on an enemy piece to capture it. The first move alternates from game to game.</li>
-          <li class="new"><b>Raid.</b> At the start of your turn, each of your pieces in the enemy half adds 1 to your opponent's Stress.</li>
-          <li class="new"><b>Nerve.</b> A raider can do that 3 times. After its third hit it cracks and leaves the board. Move it back to the middle row or your half and its nerve refills. Your Crown never cracks.</li>
-          <li><b>Win.</b> Your opponent reaches 10 Stress, or you capture their Crown.</li>
-          <li><b>Time limit.</b> If nobody has won after 40 rounds, the player with less Stress wins. If it's tied, play on until someone takes another point. <span class="fine">(If 10 more rounds pass without a hit, the side with more pieces wins.)</span></li>
-        </ol>
-
-        <h2>The pieces</h2>
-        <div class="piece-cards">
-          <div class="piece-card"><div class="diagram-slot" data-diagram="crown"></div><div><h3>Crown</h3><p>One square in any direction. Lose it and you lose the game. It never cracks.</p></div></div>
-          <div class="piece-card"><div class="diagram-slot" data-diagram="guard"></div><div><h3>Guard</h3><p>One or two squares straight. Can't jump. Captures by landing on an enemy (ring).</p></div></div>
-          <div class="piece-card"><div class="diagram-slot" data-diagram="runner"></div><div><h3>Runner</h3><p>One or two squares diagonally. Can't jump, so the Guard here blocks one way.</p></div></div>
-          <div class="piece-card"><div class="diagram-slot" data-diagram="jumper"></div><div><h3>Jumper</h3><p>An L: two squares one way, one to the side. Hops over anything.</p></div></div>
-        </div>
-
-        <h2>Raids and nerve</h2>
-        <div class="raid-card">
-          <div class="diagram-slot wide" data-diagram="raid"></div>
-          <p>Blue's Jumper on e5 is raiding Red's half. If it is still there when Blue's turn starts, Red takes 1 Stress and the Jumper uses up one gold dot of nerve. With one dot left (red), its next hit is its last: pull it back to refill, or let it crack.</p>
-        </div>
-
-        <h2>Hints</h2>
-        <p class="hint-key">When you pick up a piece, its moves are marked. <span class="key risk" aria-hidden="true"></span> <b>Amber</b>: your piece could be captured there. <span class="key danger" aria-hidden="true"></span> <b>Red</b>: the move loses the game or exposes your Crown. Tap your opponent's pieces to see where they can go. You can turn hints off in the game.</p>
-
-        <button class="btn primary wide" id="rules-play">Play</button>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="themes" aria-selected="true">Boards</button>
+        <button role="tab" data-tab="awards" aria-selected="false">Awards</button>
+        <button role="tab" data-tab="stats" aria-selected="false">Stats</button>
       </div>
+      <div id="collection-body"></div>
     </div>
   </section>
 
-  <!-- ============ SETTINGS ============ -->
+  <!-- ===== SETTINGS ===== -->
   <section class="screen" id="screen-settings" aria-labelledby="settings-title">
-    <header class="topbar">
-      <button class="icon-btn" id="settings-back" aria-label="Back">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="topbar-title"><span id="settings-title">Settings</span></div>
-      <span class="icon-spacer"></span>
-    </header>
-    <div class="scroll">
-      <div class="doc settings">
-        <div class="setting">
-          <div><h3 id="lbl-sound">Sound</h3><p>Soft effects for moves, raids and cracks.</p></div>
-          <button class="switch" id="set-sound" role="switch" aria-checked="true" aria-labelledby="lbl-sound"></button>
-        </div>
-        <div class="setting">
-          <div><h3 id="lbl-hints">Hints</h3><p>Mark risky moves when you pick up a piece.</p></div>
-          <button class="switch" id="set-hints" role="switch" aria-checked="true" aria-labelledby="lbl-hints"></button>
-        </div>
-        <div class="setting">
-          <div><h3 id="lbl-theme">Theme</h3></div>
-          <div class="seg" id="set-theme" role="radiogroup" aria-labelledby="lbl-theme">
-            <button type="button" data-v="auto" role="radio">Auto</button><button type="button" data-v="light" role="radio">Light</button><button type="button" data-v="dark" role="radio">Dark</button>
-          </div>
-        </div>
-        <div class="setting stack">
-          <div><h3 id="lbl-level">Computer</h3><p id="level-help"></p></div>
-          <div class="seg" id="set-levelmode" role="radiogroup" aria-labelledby="lbl-level">
-            <button type="button" data-v="adaptive" role="radio">Adaptive</button><button type="button" data-v="fixed" role="radio">Fixed level</button>
-          </div>
-          <div class="stepper" id="level-stepper">
-            <button type="button" id="level-down" aria-label="Easier">−</button>
-            <output id="level-out" aria-live="polite"></output>
-            <button type="button" id="level-up" aria-label="Harder">+</button>
-          </div>
-        </div>
-        <div class="setting">
-          <div><h3 id="lbl-clock">Two-player clock</h3><p>Time for each player. Run out and you lose.</p></div>
-          <div class="seg" id="set-clock" role="radiogroup" aria-labelledby="lbl-clock">
-            <button type="button" data-v="0" role="radio">Off</button><button type="button" data-v="180" role="radio">3 min</button><button type="button" data-v="300" role="radio">5 min</button>
-          </div>
-        </div>
-        <div class="setting">
-          <div><h3>Tips</h3><p>Show the first-game tips again.</p></div>
-          <button class="btn small" id="reset-tips">Show again</button>
-        </div>
-        <div class="setting">
-          <div><h3>Record</h3><p id="record-detail"></p></div>
-          <button class="btn small" id="reset-stats">Reset</button>
-        </div>
-      </div>
+    <div class="topbar"><button class="icon-btn" data-back aria-label="Back"></button><h2 id="settings-title">Settings</h2><span class="spacer"></span></div>
+    <div class="scroll"><div class="settings" id="settings-body"></div></div>
+  </section>
+
+  <!-- ===== HOW TO PLAY ===== -->
+  <section class="screen" id="screen-rules" aria-labelledby="rules-title">
+    <div class="topbar"><button class="icon-btn" data-back aria-label="Back"></button><h2 id="rules-title">How to play</h2><span class="spacer"></span></div>
+    <div class="scroll"><div class="doc" id="rules-body"></div></div>
+  </section>
+
+  <!-- ===== TUTORIAL ===== -->
+  <section class="screen game-layout" id="screen-tutorial" aria-label="Tutorial">
+    <div class="g-top"><span class="spacer"></span><div class="g-title"><b>Learn Stress</b><span id="t-count">Lesson 1 of 5</span></div><button class="btn ghost small" id="t-skip">Skip</button></div>
+    <div class="side top" data-side="red">
+      <div class="face" id="t-opp-face"></div>
+      <div class="nm">Red</div>
+      <div class="num"><b id="t-stress-1">0</b><span>/10</span></div>
+      <div class="meter-row"><div class="meter" id="t-meter-1"></div></div>
+    </div>
+    <div class="board-area"><div id="t-board"></div></div>
+    <div class="side bottom" data-side="blue">
+      <div class="face" id="t-me-face"></div>
+      <div class="nm">You</div>
+      <div class="num"><b id="t-stress-0">0</b><span>/10</span></div>
+      <div class="meter-row"><div class="meter" id="t-meter-0"></div></div>
+    </div>
+    <div class="t-coach" id="t-coach" aria-live="polite"><p id="t-text"></p><button class="btn primary small" id="t-next" hidden>Next</button></div>
+  </section>
+
+  <!-- ===== GAME ===== -->
+  <section class="screen game-layout" id="screen-game" aria-label="Game">
+    <div class="g-top">
+      <button class="icon-btn" id="g-menu" aria-label="Pause menu"></button>
+      <div class="g-title"><b id="g-title">vs Pip</b><span id="g-sub">Round 1 of 40</span></div>
+      <button class="icon-btn" id="g-sound" aria-label="Sound" aria-pressed="true"></button>
+    </div>
+    <div class="side top" id="side-opp" data-side="red">
+      <div class="face" id="opp-face"></div>
+      <div class="nm" id="opp-name">Red<small>to move</small></div>
+      <div class="num"><b id="opp-stress">0</b><span>/10</span></div>
+      <div class="meter-row"><div class="meter" id="meter-1"></div><span class="incoming" id="inc-1"></span><span class="clock" id="clock-1" hidden></span></div>
+      <div class="say" id="opp-say" role="status" hidden></div>
+    </div>
+    <div class="board-area"><div id="board"></div><div class="banner" id="banner" hidden></div></div>
+    <div class="side bottom" id="side-me" data-side="blue">
+      <div class="face" id="me-face"></div>
+      <div class="nm" id="me-name">You<small>to move</small></div>
+      <div class="num"><b id="me-stress">0</b><span>/10</span></div>
+      <div class="meter-row"><div class="meter" id="meter-0"></div><span class="incoming" id="inc-0"></span><span class="clock" id="clock-0" hidden></span></div>
+    </div>
+    <div class="g-bar">
+      <button class="btn small" id="btn-undo"><span data-icon="undo"></span>Undo</button>
+      <button class="btn small" id="btn-hints" aria-pressed="true"><span data-icon="hint"></span>Hints</button>
+      <button class="btn small" id="btn-reset" hidden><span data-icon="reset"></span>Restart</button>
+      <button class="btn small gold" id="btn-hint" hidden><span data-icon="hint"></span>Hint</button>
     </div>
   </section>
+
+  <!-- ===== RESULTS ===== -->
+  <section class="screen" id="screen-results" aria-live="polite" aria-label="Results"></section>
 </main>
 
-<div class="overlay" id="gameover" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="go-title">
-    <p class="eyebrow" id="go-eyebrow">Game over</p>
-    <h2 id="go-title"></h2>
-    <p class="go-reason" id="go-reason"></p>
-    <dl class="go-stats" id="go-stats"></dl>
-    <p class="go-level" id="go-level"></p>
-    <div class="go-actions">
-      <button class="btn primary" id="go-again">Play again</button>
-      <button class="btn" id="go-undo">Undo last move</button>
-      <button class="btn ghost" id="go-menu">Menu</button>
-    </div>
-  </div>
-</div>
+<div id="sheet-root"></div>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="src/rules.js"></script>
 <script src="src/ai.js"></script>
+<script src="src/solver.js"></script>
+<script src="src/rivals.js"></script>
+<script src="src/progress.js"></script>
+<script src="src/data/puzzles.js"></script>
 <script src="src/storage.js"></script>
+<script src="src/art.js"></script>
+<script src="src/icons.js"></script>
 <script src="src/sound.js"></script>
+<script src="src/music.js"></script>
+<script src="src/haptics.js"></script>
+<script src="src/native.js"></script>
+<script src="src/fx.js"></script>
 <script src="src/board-view.js"></script>
-<script src="src/app.js"></script>
+<script src="src/match.js"></script>
+<script src="src/tutorial.js"></script>
+<script src="src/screens.js"></script>
+<script src="src/main.js"></script>
 </body>
 </html>

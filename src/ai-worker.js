@@ -1,14 +1,17 @@
-/* Runs the computer opponent off the main thread so the board never freezes. */
-/* global StressRules, StressAI */
-importScripts('rules.js', 'ai.js');
+/* Runs the computer opponent and the puzzle solver off the main thread so the board never freezes. */
+/* global StressRules, StressAI, StressSolver */
+importScripts('rules.js', 'ai.js', 'solver.js');
 
 self.onmessage = function (e) {
   const req = e.data || {};
   try {
     const state = StressRules.deserialize(req.state);
-    const result = StressAI.chooseMove(state, { level: req.level, seed: req.seed });
+    let result;
+    if (req.kind === 'defend') result = StressSolver.bestDefense(state, req.movesLeft, 3e6);
+    else if (req.kind === 'hint') result = { moves: StressSolver.winningMoves(state, req.movesLeft, 3e6) };
+    else result = StressAI.chooseMove(state, { level: req.level, seed: req.seed, style: req.style, budgetMs: req.budget });
     self.postMessage({ id: req.id, result: result });
   } catch (err) {
-    self.postMessage({ id: req.id, error: String(err && err.message || err) });
+    self.postMessage({ id: req.id, error: String((err && err.message) || err) });
   }
 };

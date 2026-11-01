@@ -42,6 +42,7 @@
   const MIN_LEVEL = 1, MAX_LEVEL = LEVELS.length - 1;
 
   const VALUE = [0, 0, 400, 330, 350]; // by piece type; the Crown is priceless (capture ends the game)
+  const NO_STYLE = { raid: 1, material: 1, safety: 1, hunt: 1 };
   const WIN = 100000;
   const MATE_ZONE = WIN - 1000;
   const TIMEOUT = { timeout: true };
@@ -84,8 +85,9 @@
   // Score from the point of view of the side to move.
   // The longer nothing happens (no capture, no Stress), the more the opponent values
   // raiding and pushing forward, so it never settles into a standoff.
+  // A rival's personality (ctx.style) weights the computer's own side only; at 1 it changes nothing.
   function evaluate(ctx, st) {
-    const s = st.turn, o = 1 - s;
+    const s = st.turn, o = 1 - s, sty = ctx.style || NO_STYLE, mine = s === ctx.side;
     const urge = 1 + Math.min(3, st.quiet / 8);
     let score = 0, incomingS = 0, incomingO = 0, crownRaidS = 0, crownRaidO = 0, crownS = -1, crownO = -1, advance = 0;
     for (let sq = 0; sq < CELLS; sq++) {
@@ -97,7 +99,7 @@
         if (HALF[sq] === p) score += sign * 18; // a Crown at home is a safe Crown
         else if (HALF[sq] === 1 - p) score -= sign * 45;
       } else {
-        score += sign * VALUE[t];
+        score += sign * VALUE[t] * (p === ctx.side ? sty.material : 1);
         if (row >= 2 && row <= 4) score += sign * 8; // active pieces in or near the middle
         advance += sign * (p === 0 ? 6 - row : row); // rows travelled toward the enemy
       }
@@ -113,14 +115,16 @@
     }
     const so = st.stress[o], ss = st.stress[s];
     score += stressCost(so) - stressCost(ss);
-    score += urge * ((stressCost(so + 0.75 * incomingO) - stressCost(so)) - (stressCost(ss + 0.75 * incomingS) - stressCost(ss)));
+    score += urge * ((stressCost(so + 0.75 * incomingO) - stressCost(so)) * (mine ? sty.raid : 1) - (stressCost(ss + 0.75 * incomingS) - stressCost(ss)) * (mine ? 1 : sty.raid));
     score += (stressCost(so + 0.4 * crownRaidO) - stressCost(so)) - (stressCost(ss + 0.4 * crownRaidS) - stressCost(ss));
     score += urge * 3 * advance;
     if (crownO >= 0 && R.isAttackedBy(st, crownO, s)) score += 3000; // we can take their Crown next
     if (crownS >= 0) {
-      if (R.isAttackedBy(st, crownS, o)) score -= 60;
-      score += 6 * Math.min(3, neighbours(st, crownS, s)) - 12 * nearby(st, crownS, o);
+      const safety = mine ? sty.safety : 1;
+      if (R.isAttackedBy(st, crownS, o)) score -= 60 * safety;
+      score += (6 * Math.min(3, neighbours(st, crownS, s)) - 12 * nearby(st, crownS, o)) * safety;
     }
+    if (mine && sty.hunt !== 1 && crownO >= 0) score += 10 * (sty.hunt - 1) * nearby(st, crownO, s);
     if (ctx.noise) score += (ctx.rng() * 2 - 1) * ctx.noise;
     return score;
   }
@@ -251,7 +255,8 @@
 
   /**
    * Pick a move for the side to move. Does not modify `state`.
-   * opts: level (1-9), seed or rng, budgetMs (override the level's time budget).
+   * opts: level (1-9), seed or rng, budgetMs (override the level's time budget),
+   * style: a rival's personality { raid, material, safety, hunt } (multipliers, default 1).
    * Returns { move, score, depth, nodes, ms, slipped } or null when there is no legal move.
    */
   function chooseMove(state, opts) {
@@ -275,6 +280,7 @@
     const budget = opts.budgetMs !== undefined ? opts.budgetMs : L.budgetMs || 0;
     const ctx = {
       rng, noise: L.noise, quiesce: L.quiesce, nodes: 0, ticks: 0, deadline: 0,
+      side: st.turn, style: Object.assign({}, NO_STYLE, opts.style || {}),
       killers: new Int32Array(64), history: Object.create(null)
     };
     // With few pieces left the search is cheap, so look further ahead to finish the game.

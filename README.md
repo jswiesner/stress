@@ -1,97 +1,149 @@
-# Stress 2.0
+# Stress 3.0
 
 *Keep calm. Stress them out.*
 
-A quick chess-flavored duel for a few spare minutes. Raid your opponent's half to pile on Stress, pull your raiders back before they crack, and keep your Crown safe. First to 10 Stress loses, and games can't stall: after 40 rounds the calmer player wins.
+A three-minute strategy duel with a lot of personality. Raid your rival's half to pile on Stress, pull your raiders back before they crack, and keep your Crown safe. First to 10 Stress loses.
 
-Play the computer (nine levels that adapt to you) or pass and play with a friend. It runs in any modern browser, on phones and desktops, with nothing to install.
+3.0 turns the 2.0 game into an app built to compete on the App Store. It adds characters whose faces react to every raid, a 60-second interactive tutorial, a ladder of ten rivals with their own play styles, a daily puzzle with a streak, 150 solver-proven puzzles, XP and unlockable boards, and a native iOS shell. The rules are unchanged from 2.0.
+
+- **Why 3.0 looks like this:** [`docs/STRESS-3.0.md`](docs/STRESS-3.0.md), the product review of 2.0 and the plan (loops, first-time experience, store optimization, monetization, launch).
+- **Shipping to the App Store:** [`docs/ios-release.md`](docs/ios-release.md).
+- **Store copy and assets:** [`store/listing.md`](store/listing.md) and `store/screenshots/`.
 
 ## How to play
 
 1. **Board.** 7×7. The three rows nearest you are your half. The middle row is neutral.
-2. **Pieces.** Each side has a Crown, 2 Guards, 2 Runners and 2 Jumpers, lined up on the back row: Guard, Jumper, Runner, Crown, Runner, Jumper, Guard.
-3. **Your turn.** Move one piece. Land on an enemy piece to capture it. The first move alternates from game to game.
+2. **Pieces.** Each side has a Crown, 2 Guards, 2 Runners and 2 Jumpers on its back row. Their shape tells you how they move.
+3. **Your turn.** Move one piece. Land on an enemy piece to capture it.
 4. **Raid.** At the start of your turn, each of your pieces in the enemy half adds 1 to your opponent's Stress.
 5. **Nerve.** A raider can do that 3 times. After its third hit it cracks and leaves the board. Move it back to the middle row or your half and its nerve refills. Your Crown never cracks.
 6. **Win.** Your opponent reaches 10 Stress, or you capture their Crown.
-7. **Time limit.** If nobody has won after 40 rounds, the player with less Stress wins. If it's tied, play on until someone takes another point. (If 10 more rounds pass without a hit, the side with more pieces wins; equal pieces is a draw.)
+7. **Time limit.** After 40 rounds the calmer player wins. A tie plays on until the next point. If 10 more rounds pass without a hit, the side with more pieces wins; equal pieces is a draw.
 
-| Piece | Icon | Moves |
+| Piece | Character | Moves |
 |---|---|---|
-| Crown | crown | 1 square in any direction |
-| Guard | + | 1 or 2 squares straight; can't jump |
-| Runner | × | 1 or 2 squares diagonally; can't jump |
-| Jumper | L | an L: 2 squares one way, 1 to the side; hops over pieces |
+| Crown | wears a crown | 1 square in any direction |
+| Guard | square body | 1 or 2 squares straight; can't jump |
+| Runner | diamond body | 1 or 2 squares diagonally; can't jump |
+| Jumper | bunny ears | an L: 2 squares one way, 1 to the side; hops over pieces |
 
-## In the game
+## What's in the game
 
-- **Against the computer:** nine levels, from Chill (1–3) through Steady (4–6) and Sharp (7–8) to Ruthless (9). Adaptive by default: you start at level 3, it gets one level harder when you win and one easier when you lose. You can also fix the level in Settings. The computer thinks in a Web Worker, so the board never freezes.
-- **Two players:** pass and play on one device, with an optional clock (3 or 5 minutes each; run out and you lose).
-- **Hints:** a picked-up piece shows its moves. Amber marks a square where it could be captured, red a move that loses or exposes your Crown. Tap an opponent's piece to see where it can go.
-- **Calm by default:** no move timer against the computer, undo at any time (even after the game ends), automatic saving with *Continue game*, tips during your first game, light and dark themes, gentle sound, and reduced-motion support.
+- **Tutorial:** five one-tap lessons (raid, nerve, capture, crack, crown) that end in a win. It starts on first launch and can be skipped or replayed.
+- **Rivals:** Pip, Bramble, Marlow, Juniper, Ozzie, Wren, Captain Calloway, Vex, Nova and The Monk. Each one is a level of the real search with a personality on top (raid appetite, greed, Crown safety, Crown hunting) plus voice lines. Each has three stars: a win; a win at 5 Stress or less; a win at 2 or less.
+- **Daily puzzle:** the same puzzle for everyone each day, with a streak and a spoiler-free share card. There are 120 dailies.
+- **Puzzle packs:** Warm-up (40, win in 1), Tactics (60, win in 2) and Mastery (50, win in 3). The defender always plays its most stubborn reply.
+- **Quick match:** a sparring partner whose level adapts, one level up after a win and one down after a loss.
+- **Two players:** pass and play, with an optional 3- or 5-minute clock.
+- **Progress:** XP and levels with titles from *Rattled* to *Zen Master*, 16 achievements and six boards to unlock.
+- **Feel:** pieces hop and squash, raids spark, captures shake the screen, cracked raiders shatter, and wins end in confetti. There is generative ambient music, synthesized sound and native haptics in the iOS app.
+- **Calm by default:** no ads, accounts, energy or move timers. You can undo at any time, games autosave, there are light and dark themes, motion respects the reduced-motion setting, and the board has a description for screen readers.
+- **Offline:** the web build caches itself (service worker), and the iOS app bundles everything.
 
 ## Running it
 
-There is no build step. Serve the folder with any static web server and open it:
+There is no build step for the web version. Serve the folder and open it:
 
 ```sh
-python3 -m http.server 8000   # then visit http://localhost:8000
+npm run serve        # python3 -m http.server 8000, then visit http://localhost:8000
 ```
 
-Opening `index.html` straight from disk also works. Browsers block Web Workers on `file://`, so the computer then thinks on the page itself.
+Opening `index.html` from disk works too. Browsers block Web Workers on `file://`, so the computer then thinks on the page itself.
 
-The site deploys to GitHub Pages through `.github/workflows/static.yml` on every push to the default branch.
+The site deploys to GitHub Pages through `.github/workflows/static.yml` on every push to the default branch. The deploy also serves `privacy.html` and `support.html`, the pages the App Store listing links to.
+
+## iOS app
+
+```sh
+npm install          # Capacitor 8, the iOS platform and plugins
+npm run ios          # copy the game into dist/ and sync it into ios/
+npm run ios:open     # open the Xcode project (macOS)
+```
+
+See [`docs/ios-release.md`](docs/ios-release.md) for signing, TestFlight and submission.
 
 ## Project layout
 
 ```text
-index.html          screens and markup
-style.css           look and layout, light and dark
-src/rules.js        the rules: pure logic shared by the page, the worker, the tests and the simulator
-src/ai.js           the computer opponent (alpha-beta search, nine levels)
-src/ai-worker.js    runs the opponent off the main thread
-src/board-view.js   draws the board; animates moves, raids and cracks
-src/app.js          screens, game flow, input, undo, saving, tips, the clock
-src/storage.js      settings, progress and the saved game (localStorage)
-src/sound.js        synthesized sound effects
-tests/              node --test suites for the rules and the opponent
-tools/sim/sim.js    computer-vs-computer simulator used to tune rules and levels
-tools/e2e.js        browser test that plays whole games through the interface
+index.html             screens and markup
+style.css              look and layout: light and dark, six boards, phone and tablet layouts
+privacy.html           privacy policy (App Store requirement)
+support.html           support page (App Store requirement)
+manifest.webmanifest   installable web app
+sw.js                  offline cache for the web build
+
+src/rules.js           the rules: pure logic shared by the page, worker, solver, tests and tools
+src/ai.js              the computer opponent: alpha-beta search, nine levels, rival styles
+src/solver.js          exact forced-win search for puzzles (checking, defending, hints)
+src/ai-worker.js       runs the opponent and the solver off the main thread
+src/rivals.js          the ten rivals: levels, styles, lines
+src/progress.js        XP, levels, stars, streaks, achievements, boards (pure, tested)
+src/data/puzzles.js    150 pack puzzles and 120 dailies, generated by tools/puzzles
+src/storage.js         profile, settings and saved game (localStorage), migration from 2.0
+src/art.js             the characters, rival portraits, app icon and launch splash (SVG)
+src/board-view.js      the board: moods, hops, sparks, cracks
+src/match.js           a game in progress, in every mode: turns, puzzles, barks, tips, undo, clock
+src/tutorial.js        the interactive tutorial
+src/screens.js         home, rivals, puzzles, collection, settings, rules and results screens
+src/main.js            the app shell: boot, navigation, sheets, starting each mode, sharing
+src/sound.js           synthesized sound effects
+src/music.js           generative ambient music
+src/haptics.js         native haptics in the app, vibration on Android browsers
+src/native.js          iOS shell glue: launch splash and status bar
+src/fx.js              confetti and counters
+src/icons.js           interface icons
+
+ios/                   the Xcode project (Capacitor, Swift Package Manager)
+capacitor.config.json  app id, name and plugin settings
+store/                 App Store icon, screenshots and listing copy
+docs/                  the 3.0 proposal and the release guide
+
+tests/                 node --test suites: rules, opponent, solver and puzzles, progress, tutorial
+tools/e2e.js           browser test that plays through every mode at three screen sizes
+tools/build.js         copies the shippable files into dist/ for the iOS app
+tools/icons.js         renders every icon and the splash from src/art.js
+tools/store-shots.js   renders the App Store screenshots from the real app
+tools/puzzles/         puzzle generation (self-play) and curation (solver-proven)
+tools/sim/sim.js       computer-vs-computer simulator used to tune the rules and levels
 ```
 
 ## Tests
 
 ```sh
-npm test            # rules and opponent: node --test tests/*.test.js
-node tools/e2e.js   # full games in Chromium at phone and desktop sizes (needs Playwright)
+npm test             # node --test tests/*.test.js
+npm run e2e          # Chromium at phone, small dark phone and tablet sizes, plus file://
 ```
 
-The unit tests also run on GitHub Actions for every push and pull request (`.github/workflows/test.yml`).
+The unit tests check the rules, the opponent, that every puzzle is a forced win in exactly its number of moves and that the stored answer works, the progression math (XP, stars, streaks across months and years, unlocks, achievements) and the tutorial scripts. The browser test plays the tutorial, a rival (with undo), the daily and a pack puzzle using hints, a saved and resumed quick match, a two-player game on the clock, and every menu. It fails on any console error or sideways overflow.
+
+The unit tests run on GitHub Actions for every push and pull request (`.github/workflows/test.yml`).
+
+## Puzzles
+
+Puzzles come from real games. `tools/puzzles/generate.js` plays the computer against itself across levels and keeps every position where the side to move has a forced win. `tools/puzzles/curate.js` re-proves each one with the exact solver, prefers a single winning first move, removes duplicates, and writes the packs and the daily rotation to `src/data/puzzles.js`.
+
+```sh
+npm run puzzles:generate   # writes tools/puzzles/candidates.json (takes a while)
+npm run puzzles:curate     # writes src/data/puzzles.js
+```
 
 ## Tuning with the simulator
 
-`tools/sim/sim.js` plays computer-vs-computer games with the real rules and the real opponent, and reports the numbers the design is tuned against: draws, game length, how often games reach the round limit, first-move advantage, comebacks, and which pieces earn the winning Stress.
+`tools/sim/sim.js` plays computer-vs-computer games with the real rules and opponent and reports what the design is tuned against: draws, game length, first-move advantage, comebacks, and which pieces earn the winning Stress.
 
 ```sh
-node tools/sim/sim.js --blue 6 --red 6 --games 400   # one matchup
-node tools/sim/sim.js --preset ladder                # every level against level 6
-node tools/sim/sim.js --preset all                   # the full report
+node tools/sim/sim.js --blue 6 --red 6 --games 400
+node tools/sim/sim.js --preset ladder
 ```
 
-### Current numbers
-
-Computer against itself at level 6 (400 games): no draws; 4% of games reach the 40-round limit and are decided by Stress there; the median game lasts 48 moves (24 per player); the first player wins 51%; there are 8.4 captures and 1.7 cracked raiders per game; and 59% of games end with the winner on 6 Stress or more.
-
-Each level against level 6 (400 games per level, half with each color):
+Level 6 against itself (400 games): no draws, 4% of games reach the 40-round limit, the median game is 48 moves, and the first player wins 51%. Each level against level 6:
 
 | Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
 |---|---|---|---|---|---|---|---|---|---|
 | Wins | 0% | 0% | 0% | 9% | 36% | 52% | 61% | 77% | 78% |
 
-Level 9 is measured at its minimum depth. With its in-game thinking time (`--budget 600`) it beat level 8 in 89% of 80 games. Levels 1–3 are for beginners: a stand-in that moves at random but grabs captures wins 38%, 24% and 23% of its games against them.
-
-A draw needs a tied sudden death that runs 10 extra rounds without a hit and leaves equal pieces. In about 5,900 simulated games that happened twice, both between two copies of level 9.
+These numbers are for plain levels. A rival's style only changes how that rival weighs its own raids, material and Crown, so a style-free level plays exactly as measured here.
 
 ## Credits
 
-Made by Paul.
+Made by Paul. Fonts: [Figtree](https://github.com/erikdkennedy/figtree) and [Unbounded](https://github.com/googlefonts/unbounded), both under the SIL Open Font License (`assets/fonts/`).

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stress: Support</title>
+<meta name="description" content="Help with Stress, the three-minute strategy duel.">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<style>
+  @font-face { font-family: "Figtree"; src: url("assets/fonts/figtree-latin.woff2") format("woff2"); font-weight: 400 800; }
+  @font-face { font-family: "Unbounded"; src: url("assets/fonts/unbounded-latin.woff2") format("woff2"); font-weight: 500 800; }
+  :root { --bg: #EAF4F0; --card: #FFFFFF; --ink: #14201C; --muted: #5A6B64; --brand: #138A6F; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0C1714; --card: #17241F; --ink: #E5EFEB; --muted: #9AACA5; --brand: #22C29E; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.6 Figtree, system-ui, sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 40px 16px 64px; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+  header img { width: 56px; height: 56px; border-radius: 14px; }
+  h1 { margin: 0; font: 800 1.6rem/1.2 Unbounded, system-ui, sans-serif; letter-spacing: .02em; }
+  .card { background: var(--card); border-radius: 20px; padding: 24px; box-shadow: 0 4px 18px rgba(0, 0, 0, .06); }
+  h2 { font-size: 1.05rem; margin: 24px 0 6px; }
+  h2:first-child { margin-top: 0; }
+  p, li { color: var(--ink); }
+  .muted { color: var(--muted); font-size: .92rem; }
+  a { color: var(--brand); font-weight: 700; }
+  dt { font-weight: 800; margin-top: 16px; }
+  dd { margin: 4px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <header><img src="assets/icons/icon-192.png" alt=""><h1>Support</h1></header>
+  <div class="card">
+    <h2>How do I play?</h2>
+    <p>Raid your rival's half of the board: at the start of your turn, each of your pieces there adds 1 to their Stress. A raider can do that three times before it cracks, so bring it back to the middle row or your half to refill its nerve. First to 10 Stress loses, and capturing the enemy Crown wins on the spot. The in-app tutorial (<em>Settings › Tutorial</em>) and rules (<em>Settings › How to play</em>) show the rest.</p>
+    <h2>Common questions</h2>
+    <dl>
+      <dt>Can I undo a move?</dt>
+      <dd>Yes. Tap <em>Undo</em> during any game against the computer or a friend. If you lose, <em>Undo last move</em> on the results screen takes you back into the game.</dd>
+      <dt>Does it need an internet connection?</dt>
+      <dd>No. Everything, including the daily puzzle, works offline.</dd>
+      <dt>I broke my daily streak. Can I get it back?</dt>
+      <dd>Not yet. The streak counts consecutive days with a solved daily puzzle. Your best streak is always kept in <em>Collection › Stats</em>.</dd>
+      <dt>How do I unlock new boards?</dt>
+      <dd>By earning stars against rivals, solving puzzles, keeping a daily streak, and beating The Monk. <em>Collection › Boards</em> shows what each one needs.</dd>
+      <dt>How do I start over?</dt>
+      <dd><em>Settings › Reset progress</em>, then tap again to confirm. This can't be undone.</dd>
+      <dt>Will my progress move to a new phone?</dt>
+      <dd>Not automatically. Progress is stored on this device only, which is also why Stress needs no account.</dd>
+    </dl>
+    <h2>Contact</h2>
+    <p>Found a bug or have an idea? <a href="https://github.com/jswiesner/stress/issues">Open an issue on GitHub</a>. Please include your device and what happened.</p>
+    <p class="muted">See also: <a href="privacy.html">Privacy</a> · <a href="./">Play Stress in your browser</a></p>
+  </div>
+</main>
+</body>
+</html>

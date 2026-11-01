@@ -54,7 +54,14 @@
     tick: () => tone(1000, 0, 0.03, 'sine', 0.025),
     win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.11, 0.32, 'sine', 0.06)),
     lose: () => [440, 370, 294].forEach((f, i) => tone(f, i * 0.15, 0.34, 'sine', 0.05)),
-    shatter: () => { hiss(0, 0.5, 0.12, 1200); hiss(0.05, 0.35, 0.08, 3600); tone(120, 0, 0.45, 'triangle', 0.06, 60); }
+    shatter: () => { hiss(0, 0.5, 0.12, 1200); hiss(0.05, 0.35, 0.08, 3600); tone(120, 0, 0.45, 'triangle', 0.06, 60); },
+    star: () => { tone(880, 0, 0.18, 'sine', 0.06, 1320); tone(1320, 0.05, 0.22, 'triangle', 0.03); },
+    levelup: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.08, 0.3, 'triangle', 0.05)),
+    unlock: () => { tone(660, 0, 0.12, 'sine', 0.05); tone(990, 0.1, 0.3, 'sine', 0.05); },
+    tick2: () => tone(1400, 0, 0.02, 'sine', 0.02),
+    pop: () => tone(520, 0, 0.07, 'sine', 0.05, 760),
+    whoosh: () => hiss(0, 0.25, 0.05, 900),
+    wrong: () => { tone(330, 0, 0.14, 'triangle', 0.05, 250); }
   };
 
   root.StressSound = {

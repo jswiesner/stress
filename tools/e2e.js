@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 /*
- * End-to-end check in a real browser: serves the site, then plays whole games
- * through the interface by tapping squares, like a person would.
+ * End-to-end check in a real browser. Serves the site and plays the way a new
+ * player would: the tutorial, the first rival (with undo after a loss), the
+ * daily puzzle and a pack puzzle (using hints), a quick match that is saved
+ * and resumed, a two-player game with the clock, and the menus.
  *
  *   node tools/e2e.js            # needs Playwright with Chromium installed
  *   node tools/e2e.js --shots D  # also save screenshots into folder D
  *
- * Fails on any console error, a game that never ends, or a screen that won't open.
+ * Fails on any page error or console error, a game that never ends, or
+ * a screen that won't open or overflows sideways.
  */
 'use strict';
 const http = require('http');
@@ -15,7 +18,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..');
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.woff2': 'font/woff2', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain' };
 const shotsDir = process.argv.includes('--shots') ? process.argv[process.argv.indexOf('--shots') + 1] : null;
 
 function serve() {
@@ -30,54 +33,10 @@ function serve() {
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const errors = [];
 let checks = 0;
-function ok(cond, msg) { checks++; if (!cond) throw new Error('Check failed: ' + msg); }
-
-// Wait until it's a human's turn (board takes taps) or the game is over.
-async function waitForTurn(page, timeout = 20000) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < timeout) {
-    const s = await page.evaluate(() => ({
-      over: !document.getElementById('gameover').hidden,
-      ready: !!document.querySelector('#board.interactive')
-    }));
-    if (s.over) return 'over';
-    if (s.ready) return 'turn';
-    await sleep(60);
-  }
-  throw new Error('Timed out waiting for a turn');
-}
-
-// Tap a random piece of the side to move, then one of its marked squares.
-async function playRandomMove(page, side) {
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const pieces = await page.$$eval('#board .cell', (cells, side) => cells
-      .map((c, i) => ({ i, label: c.getAttribute('aria-label') || '' }))
-      .filter(x => x.label.includes(', ' + side + ' '))
-      .map(x => x.i), side);
-    ok(pieces.length > 0, 'side to move has pieces');
-    const pick = pieces[Math.floor(Math.random() * pieces.length)];
-    await page.click(`#board .cell[data-sq="${pick}"]`);
-    const targets = await page.$$eval('#board .cell.mv, #board .cell.cap', els => els.map(e => +e.dataset.sq));
-    if (!targets.length) continue;
-    const caps = await page.$$eval('#board .cell.cap', els => els.map(e => +e.dataset.sq));
-    const to = caps.length && Math.random() < 0.7 ? caps[0] : targets[Math.floor(Math.random() * targets.length)];
-    await page.click(`#board .cell[data-sq="${to}"]`);
-    return;
-  }
-  throw new Error('Could not find a piece with a legal move');
-}
-
-async function playToEnd(page, mode, maxMoves = 160) {
-  for (let n = 0; n < maxMoves; n++) {
-    const s = await waitForTurn(page);
-    if (s === 'over') return n;
-    const side = mode === 'ai' ? 'Blue' : await page.$eval('.player.active', el => (el.dataset.side === 'blue' ? 'Blue' : 'Red'));
-    await playRandomMove(page, side);
-  }
-  throw new Error('Game did not finish');
-}
+const ok = (cond, msg) => { checks++; if (!cond) throw new Error('Check failed: ' + msg); };
+const visible = (page, sel) => page.isVisible(sel);
+const screenIs = (page, name) => page.$eval('#screen-' + name, el => el.classList.contains('active'));
 
 async function shot(page, name) {
   if (!shotsDir) return;
@@ -85,100 +44,231 @@ async function shot(page, name) {
   await page.screenshot({ path: path.join(shotsDir, name + '.png') });
 }
 
+async function noSideways(page, what) {
+  ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), what + ': no sideways scroll');
+}
+
+async function finishTutorial(page) {
+  for (let i = 0; i < 60 && !(await screenIs(page, 'results')); i++) {
+    if (await visible(page, '#t-next')) { await page.click('#t-next'); await sleep(250); continue; }
+    const spot = await page.$$eval('#t-board .cell.spot', els => els.map(e => +e.dataset.sq));
+    if (spot.length) { await page.click(`#t-board .cell[data-sq="${spot[0]}"]`); await sleep(900); continue; }
+    await sleep(200);
+  }
+  ok(await screenIs(page, 'results'), 'tutorial ends on the results screen');
+}
+
+// Wait until the human may move, or the match is over.
+async function waitTurn(page, boardSel, timeout = 25000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    if (await screenIs(page, 'results')) return 'over';
+    if (await page.$('#sheet-root .sheet')) return 'sheet';
+    if (await page.$(boardSel + '.interactive')) return 'turn';
+    await sleep(60);
+  }
+  throw new Error('Timed out waiting for a turn');
+}
+
+async function randomMove(page, side) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const mine = await page.$$eval('#board .cell', (cells, side) => cells.map((c, i) => [i, c.getAttribute('aria-label') || '']).filter(([, l]) => l.includes(', ' + side + ' ')).map(([i]) => i), side);
+    ok(mine.length > 0, 'the side to move has pieces');
+    await page.click(`#board .cell[data-sq="${mine[Math.floor(Math.random() * mine.length)]}"]`);
+    const targets = await page.$$eval('#board .cell.mv, #board .cell.cap', els => els.map(e => +e.dataset.sq));
+    if (!targets.length) continue;
+    const caps = await page.$$eval('#board .cell.cap', els => els.map(e => +e.dataset.sq));
+    await page.click(`#board .cell[data-sq="${caps.length && Math.random() < 0.7 ? caps[0] : targets[Math.floor(Math.random() * targets.length)]}"]`);
+    return;
+  }
+  throw new Error('No legal move found');
+}
+
+async function playOut(page, pvp, maxMoves = 160) {
+  for (let n = 0; n < maxMoves; n++) {
+    const s = await waitTurn(page, '#board');
+    if (s === 'over') return n;
+    if (s === 'sheet') throw new Error('unexpected sheet during play');
+    const side = pvp ? await page.$eval('.side.active', el => (el.dataset.side === 'blue' ? 'Blue' : 'Red')) : 'Blue';
+    await randomMove(page, side);
+  }
+  throw new Error('Game did not finish');
+}
+
+async function solveWithHints(page) {
+  for (let n = 0; n < 8; n++) {
+    const s = await waitTurn(page, '#board');
+    if (s === 'over') return true;
+    if (s === 'sheet') return false;
+    await page.click('#btn-hint');
+    await page.waitForSelector('#board .cell.hint-to', { timeout: 15000 });
+    const from = await page.$eval('#board .cell.hint-from', e => +e.dataset.sq);
+    const to = await page.$eval('#board .cell.hint-to', e => +e.dataset.sq);
+    await page.click(`#board .cell[data-sq="${from}"]`);
+    await page.click(`#board .cell[data-sq="${to}"]`);
+  }
+  return screenIs(page, 'results');
+}
+
 (async () => {
   const server = await serve();
   const base = 'http://127.0.0.1:' + server.address().port + '/';
   const browser = await chromium.launch();
+  const problems = [];
   try {
     for (const run of [
-      { name: 'phone-light', viewport: { width: 390, height: 844 }, colorScheme: 'light', reducedMotion: 'no-preference' },
-      { name: 'phone-dark', viewport: { width: 360, height: 740 }, colorScheme: 'dark', reducedMotion: 'reduce' },
-      { name: 'desktop', viewport: { width: 1280, height: 860 }, colorScheme: 'light', reducedMotion: 'reduce' }
+      { name: 'phone', viewport: { width: 390, height: 844 }, colorScheme: 'light', reducedMotion: 'no-preference' },
+      { name: 'small-dark', viewport: { width: 360, height: 700 }, colorScheme: 'dark', reducedMotion: 'reduce' },
+      { name: 'tablet', viewport: { width: 1024, height: 1180 }, colorScheme: 'light', reducedMotion: 'reduce' }
     ]) {
       const ctx = await browser.newContext({ viewport: run.viewport, colorScheme: run.colorScheme, reducedMotion: run.reducedMotion, deviceScaleFactor: 2 });
       const page = await ctx.newPage();
-      page.on('console', m => { if (m.type() === 'error') errors.push(run.name + ': ' + m.text()); });
-      page.on('pageerror', e => errors.push(run.name + ': ' + e.message));
+      page.on('pageerror', e => problems.push(run.name + ' pageerror: ' + e.message));
+      page.on('console', m => { if (m.type() === 'error') problems.push(run.name + ' console: ' + m.text()); });
       await page.goto(base, { waitUntil: 'load' });
-      ok(await page.isVisible('#screen-menu'), 'menu shows');
-      ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), run.name + ': no sideways scroll on the menu');
-      await shot(page, run.name + '-menu');
 
-      // A full game against the computer, undo from the game-over screen, then a rematch.
-      await page.click('#btn-ai');
-      ok(await page.isVisible('#screen-game'), 'game screen shows');
-      ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), run.name + ': no sideways scroll in game');
-      const fits = await page.evaluate(() => { const b = document.getElementById('board').getBoundingClientRect(); return b.width > 200 && b.bottom <= window.innerHeight; });
-      ok(fits, run.name + ': board is a sensible size and fully on screen');
-      await waitForTurn(page);
-      await playRandomMove(page, 'Blue');
-      await waitForTurn(page);
+      // 1. first launch opens the tutorial
+      ok(await screenIs(page, 'tutorial'), run.name + ': first launch starts the tutorial');
+      await shot(page, run.name + '-tutorial');
+      await finishTutorial(page);
+      ok(/ready/i.test(await page.textContent('.res-title')), 'tutorial result title');
+      await shot(page, run.name + '-tutorial-done');
+
+      // 2. the first rival, straight from the tutorial
+      await page.click('[data-res="next-rival"]');
+      ok(await screenIs(page, 'game'), 'rival game starts');
+      await noSideways(page, run.name + ' game');
+      const box = await page.$eval('#board', el => { const r = el.getBoundingClientRect(); return { w: r.width, bottom: r.bottom, right: r.right }; });
+      ok(box.w > 200 && box.bottom <= run.viewport.height + 1 && box.right <= run.viewport.width + 1, run.name + ': board fits the screen');
+      await waitTurn(page, '#board');
       await shot(page, run.name + '-game');
-      const moves = await playToEnd(page, 'ai');
-      ok(await page.isVisible('#gameover'), 'game over sheet shows');
-      const title = await page.textContent('#go-title');
-      ok(/win/i.test(title), 'game over title names a winner: ' + title);
-      await sleep(500);
-      await shot(page, run.name + '-gameover');
-      console.log(`${run.name}: game vs computer finished after ${moves} of your moves: "${title}" (${await page.textContent('#go-reason')})`);
-      if (await page.isVisible('#go-undo')) {
-        await page.click('#go-undo');
-        ok(await page.isHidden('#gameover'), 'undo closes the game over sheet');
-        ok((await waitForTurn(page)) === 'turn', 'after undo it is your turn again');
+      await playOut(page, false);
+      const title = await page.textContent('.res-title');
+      ok(/Victory|wins/.test(title), 'rival result: ' + title);
+      await shot(page, run.name + '-result');
+      if (await visible(page, '[data-res="undo"]')) {
+        await page.click('[data-res="undo"]');
+        ok(await screenIs(page, 'game'), 'undo returns to the game');
+        await playOut(page, false);
       }
-      // leave mid-game, then continue from the menu
-      await page.click('#btn-back');
-      ok(await page.isVisible('#btn-continue'), 'menu offers to continue the game');
-      await page.click('#btn-continue');
-      ok((await waitForTurn(page)) === 'turn', 'continued game resumes on your turn');
-      await playToEnd(page, 'ai');
-      await page.click('#go-again');
-      ok(await page.isHidden('#gameover'), 'play again starts a new game');
-      await page.click('#btn-back');
+      await page.click('[data-res="home"]');
+      ok(await screenIs(page, 'home'), 'home');
+      await noSideways(page, run.name + ' home');
+      await shot(page, run.name + '-home');
 
-      // How to play, settings
-      await page.click('#btn-rules');
-      ok(await page.isVisible('#screen-rules'), 'rules screen shows');
-      ok(await page.$$eval('.diagram-slot .piece', els => els.length) >= 8, 'piece diagrams drawn');
-      await shot(page, run.name + '-rules');
-      await page.click('#rules-back');
-      await page.click('#btn-settings');
-      ok(await page.isVisible('#screen-settings'), 'settings screen shows');
-      await page.click('#set-theme button[data-v="dark"]');
-      ok(await page.evaluate(() => document.documentElement.dataset.theme === 'dark'), 'theme switch works');
-      await shot(page, run.name + '-settings');
-      await page.click('#set-theme button[data-v="auto"]');
-      await page.click('#set-clock button[data-v="180"]');
-      await page.click('#settings-back');
+      // 3. daily puzzle, solved with hints, then shareable
+      await page.click('#h-daily');
+      ok(await screenIs(page, 'game'), 'daily puzzle opens');
+      ok(await solveWithHints(page), 'daily puzzle solved with hints');
+      ok(/Daily solved/.test(await page.textContent('.res-title')), 'daily result');
+      ok(await visible(page, '[data-res="share"]'), 'daily result can be shared');
+      await page.click('[data-res="home"]');
+      ok(/Done/.test(await page.textContent('#h-daily')), 'home shows the daily as done');
 
-      // A two-player game with the clock on.
-      await page.click('#btn-pvp');
-      ok(await page.isVisible('#clock-0'), 'two-player clock shows');
-      const pvpMoves = await playToEnd(page, 'pvp');
-      console.log(`${run.name}: two-player game finished after ${pvpMoves} moves: "${await page.textContent('#go-title')}"`);
-      await page.click('#go-menu');
-      ok(await page.isVisible('#screen-menu'), 'back on the menu');
+      // 4. a pack puzzle, then the next one
+      await page.click('#h-puzzles');
+      await page.click('[data-pack="warmup"]');
+      await page.click('[data-pz="w01"]');
+      ok(await solveWithHints(page), 'warm-up puzzle 1 solved');
+      await page.click('[data-res="next-puzzle"]');
+      ok(await screenIs(page, 'game'), 'next puzzle opens');
+      await page.click('#g-menu');
+      await page.click('[data-act="quit"]');
+      ok(await screenIs(page, 'puzzles'), 'quitting a puzzle returns to puzzles');
+      await page.click('[data-back]:visible');
+
+      // 5. quick match: save, quit, resume, finish
+      await page.click('#h-quick');
+      await waitTurn(page, '#board');
+      await randomMove(page, 'Blue');
+      await waitTurn(page, '#board');
+      await page.click('#g-menu');
+      await page.click('[data-act="quit"]');
+      ok(await screenIs(page, 'home'), 'save and quit goes home');
+      await page.click('#h-quick');
+      ok((await waitTurn(page, '#board')) === 'turn', 'quick match resumes');
+      await playOut(page, false);
+      await page.click('[data-res="home"]');
+
+      // 6. two players with the clock
+      await page.click('#h-settings');
+      await page.click('[data-seg="clock"][data-v="180"]');
+      await page.click('[data-back]:visible');
+      await page.click('#h-pvp');
+      ok(await visible(page, '#clock-0'), 'two-player clock shows');
+      await playOut(page, true);
+      ok(/wins|draw/i.test(await page.textContent('.res-title')), 'pvp result');
+      await page.click('[data-res="home"]');
+
+      // 7. menus
+      await page.click('#h-rivals');
+      ok(await page.$$eval('.rival-row', r => r.length) === 10, 'ten rivals');
+      await shot(page, run.name + '-rivals');
+      await page.click('[data-back]:visible');
+      await page.click('#h-profile');
+      for (const t of ['themes', 'awards', 'stats']) { await page.click(`[data-tab="${t}"]`); ok(await page.$('#collection-body > *'), t + ' tab renders'); }
+      await shot(page, run.name + '-collection');
+      await page.click('[data-back]:visible');
+      await page.click('#h-settings');
+      await page.click('[data-seg="appearance"][data-v="dark"]');
+      ok(await page.evaluate(() => document.documentElement.dataset.theme === 'dark'), 'dark appearance applies');
+      await page.click('[data-seg="appearance"][data-v="auto"]');
+      await page.click('[data-do="rules"]');
+      ok(await page.$$eval('#rules-body .piece-card .piece', els => els.length) >= 4, 'rules show the pieces');
+      await page.click('[data-back]:visible');
+      await page.click('[data-back]:visible');
+      ok(await screenIs(page, 'home'), 'back to home');
+      console.log(`${run.name}: tutorial, rival, daily, puzzles, quick (save/resume), two-player and menus OK`);
       await ctx.close();
     }
 
-    // Opened as a local file, workers are blocked: the computer must still play (on the page).
+    // Layouts across real device sizes: nothing overflows, the board fits, the top bar
+    // stays on top, tablets get a big board, landscape tablets put the board beside the players.
+    for (const [name, width, height] of [
+      ['iPhone SE', 375, 667], ['iPhone 16 Pro Max', 440, 956], ['iPad split view', 507, 1032],
+      ['iPad mini', 744, 1133], ['iPad mini landscape', 1133, 744], ['iPad 13"', 1032, 1376], ['iPad 13" landscape', 1376, 1032]
+    ]) {
+      const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
+      await ctx.addInitScript(() => { if (!localStorage.getItem('stress3.profile')) localStorage.setItem('stress3.profile', JSON.stringify({ v: 3, tutorialDone: true })); });
+      const page = await ctx.newPage();
+      page.on('pageerror', e => problems.push(name + ' pageerror: ' + e.message));
+      await page.goto(base, { waitUntil: 'load' });
+      ok(await screenIs(page, 'home'), name + ': home');
+      await noSideways(page, name + ' home');
+      const tiles = await page.$eval('#h-pvp', el => el.getBoundingClientRect().bottom);
+      ok(tiles <= height + 1, name + ': the whole home screen fits (' + Math.round(tiles) + ' of ' + height + ')');
+      await page.click('#h-quick');
+      await waitTurn(page, '#board');
+      await noSideways(page, name + ' game');
+      const g = await page.evaluate(() => {
+        const r = id => document.querySelector(id).getBoundingClientRect();
+        return { board: r('#board'), top: r('#screen-game .g-top'), bar: r('#screen-game .g-bar'), me: r('#side-me') };
+      });
+      ok(g.board.bottom <= height + 1 && g.board.right <= width + 1 && g.bar.bottom <= height + 1, name + ': board and controls fit');
+      if (height > width) ok(g.top.top < 40, name + ': the top bar is at the top');
+      if (Math.min(width, height) >= 700) ok(g.board.width >= 600, name + ': tablets get a big board (' + Math.round(g.board.width) + 'px)');
+      if (width > height && width >= 900) ok(g.board.right <= g.me.left, name + ': landscape puts the board beside the players');
+      await shot(page, 'layout-' + name.replace(/\W+/g, '-'));
+      await ctx.close();
+    }
+    console.log('layouts: iPhone SE to iPad 13" landscape fit without overflow');
+
+    // Opened as a file: no worker, no service worker. The computer still plays.
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
     const page = await ctx.newPage();
-    const fileErrors = [];
-    page.on('pageerror', e => fileErrors.push(e.message));
+    const fileErr = [];
+    page.on('pageerror', e => fileErr.push(e.message));
     await page.goto('file://' + path.join(ROOT, 'index.html'));
-    await page.click('#btn-ai');
-    await playToEnd(page, 'ai');
-    ok(fileErrors.length === 0, 'no errors when opened as a file: ' + fileErrors.join('; '));
-    console.log('file:// fallback: a full game against the computer works without a worker');
+    await page.click('#t-skip');
+    await page.click('#h-quick');
+    await playOut(page, false);
+    ok(fileErr.length === 0, 'no errors from file:// ' + fileErr.join('; '));
+    console.log('file:// fallback: a full quick match works without workers');
     await ctx.close();
   } finally {
     await browser.close();
     server.close();
   }
-  if (errors.length) {
-    console.error('Console errors:\n' + errors.join('\n'));
-    process.exit(1);
-  }
+  if (problems.length) { console.error('Problems:\n' + problems.join('\n')); process.exit(1); }
   console.log(`All ${checks} browser checks passed.`);
 })().catch(e => { console.error(e); process.exit(1); });

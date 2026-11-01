@@ -345,7 +345,8 @@
     // Take the native launch splash down once the first screen has painted.
     requestAnimationFrame(() => requestAnimationFrame(Native.ready));
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !Native.isNative) {
-      navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
+      // Some sandboxed frames and private modes throw just for reading navigator.serviceWorker.
+      try { navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ }); } catch (e) { /* same */ }
     }
   }
 

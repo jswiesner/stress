@@ -101,8 +101,8 @@
    *        puzzle?: { id, n, daily, solution, line?, duals?, alts?, tries? }, clocks?, history?, stats?, onFinish(result, match) }
    * A puzzle's line is its whole proven solution, [your move, reply, ...]; duals[k] is how many
    * moves win at your k-th turn, and alts[k] (for turns too deep to check on a phone) maps every
-   * other winning move to its reply. Deep puzzles carry all three, so replies and hints are
-   * instant and a wrong move fails at once; shallow turns are checked by the solver as before.
+   * other winning move to its reply. Deep puzzles carry all three, so replies and hints on the
+   * solution are instant; elsewhere the solver finds Red's best reply.
    */
   function start(cfg) {
     app = cfg.app;
@@ -121,6 +121,7 @@
       tries: cfg.puzzle ? (cfg.puzzle.tries || 0) + 1 : 0, // this attempt's number
       moved: false, // you've moved in this attempt
       logged: false, // this attempt already counted as a miss
+      slip: null, // the first move that let Red off the hook: { before, move, answer, step }
       clocks: cfg.clocks || null,
       history: cfg.history || [],
       stats: cfg.stats || { peak: [0, 0], maxRaid: 0, myMoves: 0 },
@@ -178,6 +179,7 @@
   // ---------------------------------------------------------------- turns
   function beginTurn() {
     if (!M) return;
+    if (M.mode === 'puzzle' && M.state.winner !== HUMAN && (M.state.winner !== -1 || (M.movesLeft <= 0 && M.state.turn === HUMAN))) return attemptOver();
     if (M.state.winner !== -1) return finish();
     if (isComputerTurn()) return computerTurn();
     phase = 'idle';
@@ -243,91 +245,124 @@
     await view.animate(result.events, hooks);
     if (!M || M.state !== before) return; // left or undid during the animation
     M.state = result.state;
-    if (M.mode === 'puzzle' && mover === HUMAN && M.state.winner === -1) return puzzleCheck(m);
+    if (M.mode === 'puzzle' && mover === HUMAN && M.state.winner === -1) return puzzleCheck(m, before);
     if (M.mode === 'puzzle' && mover !== HUMAN) M.movesLeft--;
     if (vsComputer() && M.state.winner === -1) oppMood(restingOppMood());
     persist();
     beginTurn();
   }
 
-  // After the player's move in a puzzle: is the win still forced?
-  function puzzleCheck(move) {
+  // ---------------------------------------------------------------- puzzles
+  // Every attempt plays out to the move limit. Red always answers with its best defense,
+  // and nothing says a move was wrong until your moves run out (or Red wins): guessing
+  // costs a whole playthrough. Every puzzle is proven, so a move that loses the forced win
+  // lets Red escape for good, and there's no winning by luck. The first such move is kept
+  // for "Show where it slipped".
+  const NAME = R.PIECE_NAMES;
+  const yourMove = (st, m) => NAME[st.type[R.moveFrom(m)]] + ' ' + R.squareName(R.moveFrom(m)) + '\u2013' + R.squareName(R.moveTo(m));
+  const redMove = (st, m) => {
+    const to = R.moveTo(m), victim = st.owner[to] >= 0 ? NAME[st.type[to]] : null;
+    return 'Red\u2019s ' + NAME[st.type[R.moveFrom(m)]] + (victim ? ' takes your ' + victim + ' on ' + R.squareName(to) : ' moves to ' + R.squareName(to));
+  };
+
+  function puzzleCheck(move, before) {
+    const step = M.puzzle.n - M.movesLeft; // 0-based turn of the move just played
+    const slipped = answer => { if (!M.slip) M.slip = { before: R.serialize(before), move, answer, step }; };
+    const answerWith = reply => { M.defense = reply; beginTurn(); };
     if (M.line && M.lineAt >= 0) {
-      const step = M.lineAt / 2, main = M.line[M.lineAt], reply = M.line[M.lineAt + 1];
-      if (move === main && reply !== undefined) {
-        M.lineAt += 2;
-        M.defense = reply;
-        return beginTurn();
-      }
-      M.lineAt = -1; // off the stored line: from here the solver judges
-      // Deep steps list every other winning move with its reply, so no search is needed.
+      const main = M.line[M.lineAt], reply = M.line[M.lineAt + 1];
+      if (move === main && reply !== undefined) { M.lineAt += 2; return answerWith(reply); }
+      M.lineAt = -1; // off the stored line: from here the solver answers
+      // Deep turns list every other winning move with its reply, so no search is needed.
       const known = M.puzzle.alts && M.puzzle.alts[step];
-      if (known) {
-        const alt = known[R.moveName(move)];
-        if (alt) { M.defense = parseMove(alt); return beginTurn(); }
-        if (move !== main) return refute();
-      } else if (move !== main && (M.puzzle.duals || [])[step] === 1) return refute();
+      if (known && known[R.moveName(move)]) return answerWith(parseMove(known[R.moveName(move)]));
+      if (move !== main && (known || (M.puzzle.duals || [])[step] === 1)) return defend(true);
     }
-    phase = 'thinking';
-    render();
-    const t = ++ticket, state = M.state;
-    ask({ kind: 'defend', state, movesLeft: M.movesLeft - 1 }, res => {
-      if (t !== ticket || !M || M.state !== state) return;
-      if (!res || res.escapes) return puzzleFail(res && res.escapes ? res.move : null);
-      M.defense = res.move;
-      beginTurn();
-    });
+    return defend(false);
+
+    // Red's best reply from the solver. `lost`: this move is proven not to win, so Red
+    // looks for its escape with a short search. If a search runs out, the computer
+    // opponent picks Red's reply instead.
+    function defend(lost) {
+      phase = 'thinking';
+      render();
+      const t = ++ticket, state = M.state;
+      ask({ kind: 'defend', state, movesLeft: M.movesLeft - 1, nodes: lost ? 1.5e6 : 3e6 }, res => {
+        if (t !== ticket || !M || M.state !== state) return;
+        if (res && typeof res.move === 'number') {
+          if (res.escapes) slipped(res.move);
+          return answerWith(res.move);
+        }
+        if (lost) slipped(null);
+        ask({ kind: 'move', state, level: 9, budget: 500 }, ai => {
+          if (t !== ticket || !M || M.state !== state) return;
+          answerWith(ai && typeof ai.move === 'number' ? ai.move : R.moves(state)[0]);
+        });
+      });
+    }
   }
 
-  // A move off a stored line that can't win: find Red's answer to show (a short search,
-  // so a hard one just fails without it), then fail.
-  function refute() {
-    phase = 'thinking';
-    render();
-    const t = ++ticket, state = M.state;
-    ask({ kind: 'defend', state, movesLeft: M.movesLeft - 1, nodes: 1.5e6 }, res => {
-      if (t !== ticket || !M || M.state !== state) return;
-      puzzleFail(res && res.escapes ? res.move : null);
-    });
-  }
-
-  // Red plays its answer on the board first, so a miss explains itself: a tempting move
-  // that loses to one quiet reply would otherwise look like the game got it wrong.
-  async function puzzleFail(answer) {
-    let why = 'That move lets Red slip away.';
-    if (typeof answer === 'number' && R.isLegal(M.state, answer)) {
-      const st = M.state, t = ticket, from = R.moveFrom(answer), to = R.moveTo(answer);
-      const piece = R.PIECE_NAMES[st.type[from]], victim = st.owner[to] >= 0 ? R.PIECE_NAMES[st.type[to]] : null;
-      why = 'Red’s ' + piece + (victim ? ' takes your ' + victim + ' on ' + R.squareName(to) : ' moves to ' + R.squareName(to)) + ', and the win slips away.';
-      phase = 'animating';
-      selected = preview = -1;
-      hint = null;
-      const result = R.apply(st, answer);
-      render();
-      await view.animate(result.events, hooks);
-      if (t !== ticket || !M || M.state !== st) return;
-      M.state = result.state;
-      render();
-      await new Promise(r => setTimeout(r, reduced() ? 150 : 650));
-      if (t !== ticket || !M || M.state !== result.state) return;
-    }
+  // The attempt is over without a win: your moves ran out, or Red won first.
+  function attemptOver() {
     phase = 'idle';
     if (!M.logged && app.onPuzzleTry) app.onPuzzleTry(M.puzzle.id);
     M.logged = true;
     Sound.play('wrong');
     Haptics.play('warning');
     render();
+    const redWon = M.state.winner === 1 - HUMAN;
+    const n = M.puzzle.n;
+    const text = redWon ? 'Red won before your moves ran out.' : n === 1 ? 'That move didn\u2019t finish Red off.' : 'Red survived all ' + n + ' of your moves. Somewhere along the way it slipped out of reach.';
     app.sheet(
       '<div class="prematch"><div class="big-portrait">' + Art.piece(R.CROWN, R.RED, 'happy') + '</div>' +
-      '<h2>Not quite</h2><p class="muted" id="miss-why">' + why + ' Try again from the start?</p>' +
+      '<h2>' + (redWon ? 'Red got there first' : 'Red held on') + '</h2><p class="muted" id="miss-why">' + text + '</p>' +
       '<div class="sheet-actions"><button class="btn primary wide" data-act="retry">' + Icons.reset + 'Try again</button>' +
+      (M.slip ? '<button class="btn wide" data-act="slip">' + Icons.hint + 'Show where it slipped</button>' : '') +
       '<button class="btn wide" data-act="hint">' + Icons.hint + 'Try again with a hint</button>' +
-      '<button class="btn ghost wide" data-act="quit">Back to puzzles</button></div></div>',
+      '<button class="btn ghost wide" data-act="quit">Back to puzzles</button></div>' +
+      (M.slip ? '<p class="muted small">Seeing where it slipped counts as a hint.</p>' : '') + '</div>',
       act => {
         if (act === 'retry') resetPuzzle(false);
+        else if (act === 'slip') reviewSlip();
         else if (act === 'hint') resetPuzzle(true);
         else app.closeMatch();
       }
+    );
+  }
+
+  // Replay the move that let Red off the hook, and Red's answer, then explain it.
+  async function reviewSlip() {
+    const s = M.slip;
+    if (!s) return resetPuzzle(false);
+    M.hinted = true;
+    const t = ++ticket, pause = ms => new Promise(r => setTimeout(r, reduced() ? 100 : ms));
+    let st = R.deserialize(s.before);
+    M.state = st;
+    selected = preview = -1;
+    hint = null;
+    phase = 'animating';
+    view.reset(st, { threats: false });
+    render();
+    await pause(450);
+    let why = 'Your move ' + (s.step + 1) + ', ' + yourMove(st, s.move) + ', let Red slip away';
+    for (const m of [s.move, s.answer]) {
+      if (typeof m !== 'number' || !R.isLegal(st, m) || t !== ticket || !M) break;
+      if (m === s.answer) why += ': ' + redMove(st, m);
+      const r = R.apply(st, m);
+      await view.animate(r.events, hooks);
+      if (t !== ticket || !M) return;
+      st = M.state = r.state;
+      render();
+      await pause(350);
+    }
+    if (t !== ticket || !M) return;
+    phase = 'idle';
+    render();
+    app.sheet(
+      '<div class="prematch"><h2>Where it slipped</h2><p class="muted" id="slip-why">' + why + '.</p>' +
+      '<div class="sheet-actions"><button class="btn primary wide" data-act="retry">' + Icons.reset + 'Try again</button>' +
+      '<button class="btn ghost wide" data-act="quit">Back to puzzles</button></div></div>',
+      act => { if (act === 'retry') resetPuzzle(false); else app.closeMatch(); }
     );
   }
 
@@ -344,6 +379,7 @@
       M.tries++;
     }
     M.moved = M.logged = false;
+    M.slip = null;
     phase = 'idle';
     selected = preview = -1;
     hint = null;
@@ -362,6 +398,7 @@
       render();
       Sound.play('pop');
     };
+    if (M.slip) { app.toast('No move wins from here: an earlier move let Red slip away.', 2800); return; }
     if (M.line && M.lineAt >= 0) return apply(M.line[M.lineAt]);
     if (atStart) return apply(R.makeMove(R.squareIndex(M.puzzle.solution.slice(0, 2)), R.squareIndex(M.puzzle.solution.slice(3))));
     phase = 'thinking';

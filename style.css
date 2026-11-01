@@ -96,6 +96,7 @@ p { margin: 0; }
 .btn.ghost { background: transparent; box-shadow: none; color: var(--ink-2); min-height: 44px; }
 .btn.ghost:active { transform: none; background: var(--track); }
 .btn.small { min-height: 42px; padding: 8px 14px; font-size: .92rem; border-radius: 14px; }
+p.muted.small { font-size: .8rem; text-align: center; margin: 2px 0 0; }
 .btn.wide { width: 100%; }
 .btn:disabled { opacity: .45; cursor: default; transform: none; }
 .btn svg { width: 20px; height: 20px; flex: none; }

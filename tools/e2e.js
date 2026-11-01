@@ -95,6 +95,16 @@ async function playOut(page, pvp, maxMoves = 160) {
   throw new Error('Game did not finish');
 }
 
+// Play random moves until the puzzle attempt ends: 'sheet' (failed) or 'over' (solved).
+async function playOutAttempt(page) {
+  for (let i = 0; i < 8; i++) {
+    const s = await waitTurn(page, '#board');
+    if (s !== 'turn') return s;
+    await randomMove(page, 'Blue');
+  }
+  return waitTurn(page, '#board');
+}
+
 async function solveWithHints(page) {
   for (let n = 0; n < 8; n++) {
     const s = await waitTurn(page, '#board');
@@ -209,17 +219,22 @@ async function solveWithHints(page) {
       await page.click(`[data-pz="${first}"]`);
       ok(/Expert/.test(await page.textContent('#g-title')), 'an Expert puzzle opens');
       ok(/Win in 4/.test(await page.textContent('#g-sub')), 'it is a win in 4');
-      // Only one first move wins, so a wrong one fails at once, with no search.
+      // A wrong move isn't flagged: the attempt plays out to the move limit, and only then
+      // does the game say Red held on, with an optional look at where it slipped.
       await waitTurn(page, '#board');
-      const tw = Date.now();
       await randomMove(page, 'Blue');
-      if ((await waitTurn(page, '#board')) === 'sheet') {
-        ok(Date.now() - tw < 8000, 'a wrong first move on a deep puzzle is caught quickly, with Red\'s answer shown (' + (Date.now() - tw) + ' ms)');
+      ok((await waitTurn(page, '#board')) !== 'sheet', 'a deep puzzle keeps going after a wrong first move');
+      if ((await playOutAttempt(page)) === 'sheet') {
+        ok(/held on|got there first/.test(await page.textContent('#sheet-root')), 'the attempt ends by saying Red held on');
+        ok(await page.$('[data-act="slip"]'), 'it offers to show where it slipped');
+        await page.click('[data-act="slip"]');
+        await page.waitForSelector('#slip-why', { timeout: 20000 });
+        ok(/let Red slip away/.test(await page.textContent('#slip-why')), 'the replay explains the slip');
         await page.click('[data-act="retry"]');
         ok(/Try 2/.test(await page.textContent('#g-sub')), 'the retry is try 2');
       } else {
-        await page.click('#g-menu');
-        await page.click('[data-act="restart"]');
+        await page.click('[data-res="puzzles"]');
+        await page.click('[data-pz="' + first + '"]');
       }
       const t0 = Date.now();
       ok(await solveWithHints(page), 'the Expert puzzle is solved by following its hints');
@@ -231,9 +246,13 @@ async function solveWithHints(page) {
       await waitTurn(page, '#board');
       await page.click('#board .cell[data-sq="22"]');
       await page.click('#board .cell[data-sq="16"]');
-      ok((await waitTurn(page, '#board')) === 'sheet', 'the tempting miss in m25 fails');
-      ok(/Runner takes your Runner on c5/.test(await page.textContent('#miss-why')), 'the miss names Red\'s answer');
-      ok(await page.evaluate(() => StressMatch.current.state.owner[StressRules.squareIndex('c5')] === StressRules.RED), 'Red\'s answer is on the board');
+      ok((await waitTurn(page, '#board')) === 'turn', 'the tempting miss in m25 isn\'t flagged right away');
+      ok(await page.evaluate(() => StressMatch.current.state.owner[StressRules.squareIndex('c5')] === StressRules.RED), 'Red recaptures on c5');
+      ok((await playOutAttempt(page)) === 'sheet', 'the attempt fails when the moves run out');
+      await page.click('[data-act="slip"]');
+      await page.waitForSelector('#slip-why', { timeout: 20000 });
+      const why = await page.textContent('#slip-why');
+      ok(/move 1, Runner b4.c5, let Red slip away: Red.s Runner takes your Runner on c5/.test(why), 'the replay names the slip and Red\'s answer: ' + why);
       await page.click('[data-act="quit"]');
       await page.click('[data-back]:visible');
 
